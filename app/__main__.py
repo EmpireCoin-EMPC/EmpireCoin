@@ -59,9 +59,15 @@ def init_db():
             user_id INTEGER NOT NULL,
             task_id INTEGER NOT NULL,
             evidence TEXT NOT NULL,
+            media_file_id TEXT,
+            media_type TEXT,
             status TEXT DEFAULT 'pending',
             created_at TEXT NOT NULL,
             reviewed_at TEXT)""")
+        submission_cols = [row[1] for row in c.execute("PRAGMA table_info(task_submissions)").fetchall()]
+        for col in ("media_file_id", "media_type"):
+            if col not in submission_cols:
+                c.execute(f"ALTER TABLE task_submissions ADD COLUMN {col} TEXT")
         c.execute("""CREATE TABLE IF NOT EXISTS trades(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, details TEXT,
             status TEXT DEFAULT 'pending')""")
@@ -522,19 +528,25 @@ async def tasks(m: Message):
 
 @dp.message(Command("claim"))
 async def claim(m: Message):
-    raw = (m.text or "").partition(" ")[2].strip()
     lang = get_user_lang(m.from_user.id)
+    raw = (m.text or m.caption or "").partition(" ")[2].strip()
     parts = raw.split(maxsplit=1)
-    if len(parts) != 2 or not parts[0].isdigit() or not parts[1].strip():
+    if not parts or not parts[0].isdigit():
         examples = {
-            "en": "Usage: /claim TASK_ID evidence (paste a link or describe what you completed).",
-            "fa": "روش استفاده: /claim شماره_وظیفه مدرک (لینک را بفرستید یا توضیح دهید چه کاری انجام داده‌اید).",
-            "ru": "Использование: /claim ID_ЗАДАНИЯ доказательство (вставьте ссылку или опишите выполненную работу)."
+            "en": "Send /claim TASK_ID followed by text, or attach a screenshot/photo with caption /claim TASK_ID.",
+            "fa": "دستور /claim شماره_وظیفه را همراه توضیح بفرستید؛ یا عکس/اسکرین‌شات را با زیرنویس /claim شماره_وظیفه ارسال کنید.",
+            "ru": "Отправьте /claim ID_ЗАДАНИЯ с текстом или прикрепите фото/скриншот с подписью /claim ID_ЗАДАНИЯ."
         }
         await m.answer(examples[lang])
         return
     tid = int(parts[0])
-    evidence = parts[1].strip()
+    is_photo = bool(m.photo)
+    evidence = (parts[1].strip() if len(parts) > 1 else "") or ("Photo evidence" if is_photo else "")
+    if not evidence:
+        await m.answer("Please add evidence text or attach a photo with the command in its caption.")
+        return
+    media_file_id = m.photo[-1].file_id if is_photo else None
+    media_type = "photo" if is_photo else None
     with db() as c:
         task = c.execute("SELECT reward FROM tasks WHERE id=? AND active=1", (tid,)).fetchone()
         if not task:
@@ -552,8 +564,9 @@ async def claim(m: Message):
             await m.answer(msgs[lang])
             return
         cur = c.execute(
-            "INSERT INTO task_submissions(user_id,task_id,evidence,status,created_at) VALUES(?,?,?,'pending',?)",
-            (m.from_user.id, tid, evidence, now().isoformat())
+            """INSERT INTO task_submissions(user_id,task_id,evidence,media_file_id,media_type,status,created_at)
+               VALUES(?,?,?,?,?,'pending',?)""",
+            (m.from_user.id, tid, evidence, media_file_id, media_type, now().isoformat())
         )
         submission_id = cur.lastrowid
     confirmations = {
@@ -563,10 +576,15 @@ async def claim(m: Message):
     }
     await m.answer(confirmations[lang])
     if ADMIN_ID:
-        await bot.send_message(
-            ADMIN_ID,
-            f"Task submission #{submission_id}\nUser: {m.from_user.id}\nTask: #{tid}\nReward: {task[0]} GRM\nEvidence: {evidence}\nApprove: /task_approve {submission_id}\nReject: /task_reject {submission_id}"
+        admin_caption = (
+            f"Task submission #{submission_id}\\nUser: {m.from_user.id}\\nTask: #{tid}\\n"
+            f"Reward: {task[0]} GRM\\nEvidence: {evidence}\\n"
+            f"Approve: /task_approve {submission_id}\\nReject: /task_reject {submission_id}"
         )
+        if media_file_id:
+            await bot.send_photo(ADMIN_ID, media_file_id, caption=admin_caption)
+        else:
+            await bot.send_message(ADMIN_ID, admin_caption)
 
 @dp.message(Command("task_pending"))
 async def task_pending(m: Message):
@@ -574,7 +592,7 @@ async def task_pending(m: Message):
         return
     with db() as c:
         rows = c.execute(
-            """SELECT s.id,s.user_id,s.task_id,t.reward,s.evidence,s.created_at
+            """SELECT s.id,s.user_id,s.task_id,t.reward,s.evidence,s.created_at,s.media_type
                FROM task_submissions s JOIN tasks t ON t.id=s.task_id
                WHERE s.status='pending' ORDER BY s.id"""
         ).fetchall()
@@ -582,7 +600,7 @@ async def task_pending(m: Message):
         await m.answer("No task submissions are waiting for review.")
         return
     lines = ["Pending task submissions:"]
-    for sid, uid, tid, reward, evidence, created in rows:
+    for sid, uid, tid, reward, evidence, created, media_type in rows:
         lines.append(f"#{sid} | user={uid} | task=#{tid} | reward={reward} GRM | {created}\nEvidence: {evidence}\nApprove: /task_approve {sid} | Reject: /task_reject {sid}")
     await m.answer("\n\n".join(lines))
 
