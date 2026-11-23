@@ -146,7 +146,7 @@ async def user_menu_actions(q: CallbackQuery):
             row = c.execute("SELECT balance,withdraw_after FROM users WHERE user_id=?", (uid,)).fetchone()
             pool = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
         status = f"زمان مجاز برداشت: {row[1]}" if row[1] else "فعال‌سازی 0.5 GRAM هنوز تأیید نشده است."
-        text = f"موجودی: {row[0]} GRM\\nاستخر باقی‌مانده: {pool} GRM\\n{status}"
+        text = f"موجودی: {row[0]} GRM\nاستخر باقی‌مانده: {pool} GRM\n{status}"
     elif action == "mine":
         t = now()
         with db() as c:
@@ -166,8 +166,8 @@ async def user_menu_actions(q: CallbackQuery):
     elif action == "tasks":
         with db() as c:
             rows = c.execute("SELECT id,title,reward FROM tasks WHERE active=1").fetchall()
-        text = "\\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or "فعلاً وظیفه‌ای ثبت نشده است."
-        text += "\\nبرای دریافت پاداش: /claim شماره_وظیفه"
+        text = "\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or "فعلاً وظیفه‌ای ثبت نشده است."
+        text += "\nبرای دریافت پاداش: /claim شماره_وظیفه"
     elif action == "lottery":
         with db() as c:
             lot = c.execute("SELECT id FROM lotteries WHERE status='open' ORDER BY id DESC LIMIT 1").fetchone()
@@ -180,16 +180,16 @@ async def user_menu_actions(q: CallbackQuery):
                 except sqlite3.IntegrityError:
                     text = "قبلاً در این قرعه‌کشی ثبت شده‌اید."
     elif action == "wallet":
-        text = "برای ثبت کیف پول این دستور را بفرستید:\\n/setwallet آدرس_کیف_پول"
+        text = "برای ثبت کیف پول این دستور را بفرستید:\n/setwallet آدرس_کیف_پول"
     elif action == "withdraw":
-        text = "برای درخواست برداشت این دستور را با مقدار GRM بفرستید:\\n/withdraw مقدار\\nبرداشت پس از فعال‌سازی و گذشت ۳۰ روز ممکن است."
+        text = "برای درخواست برداشت این دستور را با مقدار GRM بفرستید:\n/withdraw مقدار\nبرداشت پس از فعال‌سازی و گذشت ۳۰ روز ممکن است."
     elif action == "trade":
-        text = "برای درخواست معامله این دستور را بفرستید:\\n/trade توضیحات معامله"
+        text = "برای درخواست معامله این دستور را بفرستید:\n/trade توضیحات معامله"
     elif action == "activate":
-        text = f"مبلغ فعال‌سازی: {ACTIVATION_FEE} GRAM\\nکیف پول شرکت:\\n{COMPANY_WALLET}\\nپس از پرداخت و بررسی واقعی، شناسه تراکنش را بفرستید:\\n/activate TX_HASH"
+        text = f"مبلغ فعال‌سازی: {ACTIVATION_FEE} GRAM\nکیف پول شرکت:\n{COMPANY_WALLET}\nپس از پرداخت و بررسی واقعی، شناسه تراکنش را بفرستید:\n/activate TX_HASH"
     else:
         text = "گزینه نامعتبر است."
-    await q.message.answer(text, reply_markup=(copy_text_keyboard(COMPANY_WALLET, "📋 کپی آدرس کیف پول شرکت") if action == "activate" and COMPANY_WALLET else user_menu_keyboard()))
+    await q.message.answer(text, reply_markup=(copy_text_keyboard(COMPANY_WALLET, "📋 کپی آدرس کیف پول شرکت") if action == "activate" and COMPANY_WALLET else user_menu_keyboard(lang)))
     await q.answer()
 
 def admin_panel_keyboard():
@@ -297,12 +297,12 @@ async def start(m: Message):
     user_upsert(m)
     lang = get_user_lang(m.from_user.id)
     welcome = {
-        "en": "Welcome to GRM Mining!\\nChoose an option below.",
-        "fa": "به ربات GRM Mining خوش آمدید!\\nیکی از گزینه‌های زیر را انتخاب کنید.",
-        "ru": "Добро пожаловать в GRM Mining!\\nВыберите действие ниже."
+        "en": "Welcome to GRM Mining!\nChoose an option below.",
+        "fa": "به ربات GRM Mining خوش آمدید!\nیکی از گزینه‌های زیر را انتخاب کنید.",
+        "ru": "Добро пожаловать в GRM Mining!\nВыберите действие ниже."
     }
     await m.answer(
-        welcome[lang] + ("\\n/admin — admin panel" if is_admin(m) else ""),
+        welcome[lang] + ("\n/admin — admin panel" if is_admin(m) else ""),
         reply_markup=admin_panel_keyboard() if is_admin(m) else user_menu_keyboard(lang)
     )
 
@@ -357,7 +357,7 @@ async def setwallet(m: Message):
         return
     with db() as c:
         c.execute("UPDATE users SET wallet=? WHERE user_id=?", (p[1].strip(), m.from_user.id))
-    await m.answer(f"آدرس کیف پول ذخیره شد:\\n{p[1].strip()}\\nقبل از برداشت، آن را با دقت بررسی کنید.", reply_markup=copy_text_keyboard(p[1].strip(), "📋 کپی آدرس کیف پول من"))
+    await m.answer(f"آدرس کیف پول ذخیره شد:\n{p[1].strip()}\nقبل از برداشت، آن را با دقت بررسی کنید.", reply_markup=copy_text_keyboard(p[1].strip(), "📋 کپی آدرس کیف پول من"))
 
 @dp.message(Command("withdraw"))
 async def withdraw(m: Message):
