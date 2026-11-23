@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import BotCommand, Message
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -337,6 +337,18 @@ async def main():
     if not ADMIN_ID:
         raise RuntimeError("ADMIN_ID را در فایل .env تنظیم کنید.")
     init_db()
+    await bot.set_my_commands([
+        BotCommand(command="start", description="شروع ربات"),
+        BotCommand(command="balance", description="مشاهده موجودی"),
+        BotCommand(command="mine", description="استخراج ساعتی GRM"),
+        BotCommand(command="activate", description="ثبت تراکنش فعال‌سازی"),
+        BotCommand(command="setwallet", description="ثبت آدرس کیف پول"),
+        BotCommand(command="withdraw", description="درخواست برداشت"),
+        BotCommand(command="tasks", description="مشاهده وظایف"),
+        BotCommand(command="claim", description="دریافت پاداش وظیفه"),
+        BotCommand(command="trade", description="درخواست معامله"),
+        BotCommand(command="lottery_join", description="شرکت در قرعه‌کشی"),
+    ])
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
