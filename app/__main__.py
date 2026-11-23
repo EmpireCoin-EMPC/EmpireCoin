@@ -90,6 +90,10 @@ def init_db():
                 c.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
         c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('pool',?)", (str(POOL_START),))
 
+def is_admin_user_id(user_id: int) -> bool:
+    return bool(ADMIN_ID and user_id == ADMIN_ID)
+
+
 def is_admin(m: Message):
     return m.from_user and m.from_user.id == ADMIN_ID
 
@@ -267,9 +271,20 @@ async def choose_language(q: CallbackQuery):
     user_upsert_from_id(q.from_user.id, q.from_user.username or "")
     with db() as c:
         c.execute("UPDATE users SET lang=? WHERE user_id=?", (lang, q.from_user.id))
-    messages = {"en": "Language saved.", "fa": "زبان شما ذخیره شد.", "ru": "Язык сохранён."}
-    await q.message.answer(messages[lang], reply_markup=user_menu_keyboard(lang))
-    await q.answer()
+    welcome = {
+        "en": "Welcome to GRM Mining! Your language is set to English.",
+        "fa": "به GRM Mining خوش آمدید! زبان شما فارسی تنظیم شد.",
+        "ru": "Добро пожаловать в GRM Mining! Вы выбрали русский язык."
+    }
+    if q.message:
+        if is_user_activated(q.from_user.id):
+            markup = user_menu_keyboard(lang)
+        else:
+            markup = activation_keyboard(lang)
+        if is_admin_user_id(q.from_user.id):
+            markup = admin_panel_keyboard(lang)
+        await q.message.answer(welcome[lang], reply_markup=markup)
+    await q.answer({"en":"Language saved.","fa":"زبان شما ذخیره شد.","ru":"Язык сохранён."}[lang])
 
 USER_TEXT = {
  "en": {
@@ -560,16 +575,12 @@ async def start(m: Message):
             with db() as c:
                 c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL AND activation_at IS NULL",
                           (inviter, m.from_user.id))
-    lang = get_user_lang(m.from_user.id)
-    welcome = {
-        "en": "Welcome to GRM Mining!\nBefore mining, you must save your wallet, pay 0.5 GRAM to the company wallet, and submit the transaction for admin verification.",
-        "fa": "به ربات GRM Mining خوش آمدید!\nپیش از ماین باید والت خود را ثبت کنید، ۰٫۵ GRAM به والت شرکت بپردازید و تراکنش را برای تأیید مدیر ارسال کنید.",
-        "ru": "Добро пожаловать в GRM Mining!\nПеред майнингом укажите кошелёк, оплатите 0.5 GRAM на кошелёк компании и отправьте транзакцию на проверку администратору."
+    prompts = {
+        "en": "Welcome to GRM Mining!\nPlease choose your language to continue:",
+        "fa": "به ربات GRM Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید:",
+        "ru": "Добро пожаловать в GRM Mining!\nВыберите язык, чтобы продолжить:"
     }
-    await m.answer(
-        welcome[lang] + ("\n/admin — admin panel" if is_admin(m) else ""),
-        reply_markup=admin_panel_keyboard(lang) if is_admin(m) else (user_menu_keyboard(lang) if is_user_activated(m.from_user.id) else activation_keyboard(lang))
-    )
+    await m.answer(prompts.get(get_user_lang(m.from_user.id), "en"), reply_markup=language_keyboard())
 
 @dp.message(Command("balance"))
 @dp.message(Command("balance"))
