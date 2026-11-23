@@ -641,6 +641,40 @@ async def addtask(m: Message):
                   (en_title, reward, en_title, fa_title, ru_title, en_desc, fa_desc, ru_desc))
     await m.answer("Task added in English, Persian and Russian.")
 
+@dp.message(Command("tasks_admin"))
+async def tasks_admin(m: Message):
+    if not is_admin(m):
+        return
+    with db() as c:
+        rows = c.execute(
+            "SELECT id, title_en, reward FROM tasks WHERE active=1 ORDER BY id"
+        ).fetchall()
+    if not rows:
+        await m.answer("هیچ وظیفه فعالی وجود ندارد.")
+        return
+    lines = ["وظایف فعال (برای حذف: /deltask شناسه):"]
+    lines.extend([f"#{task_id} — {title or 'بدون عنوان'} — {reward} GRM" for task_id, title, reward in rows])
+    await m.answer("\\n".join(lines))
+
+
+@dp.message(Command("deltask"))
+async def deltask(m: Message):
+    if not is_admin(m):
+        return
+    parts = (m.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await m.answer("روش استفاده: /deltask TASK_ID\\nبرای دیدن شناسه‌ها: /tasks_admin")
+        return
+    task_id = int(parts[1])
+    with db() as c:
+        row = c.execute("SELECT title_en FROM tasks WHERE id=? AND active=1", (task_id,)).fetchone()
+        if not row:
+            await m.answer("وظیفه فعال با این شناسه پیدا نشد.")
+            return
+        c.execute("UPDATE tasks SET active=0 WHERE id=? AND active=1", (task_id,))
+    await m.answer(f"وظیفه #{task_id} غیرفعال شد و دیگر به کاربران نمایش داده نمی‌شود. سابقه آن در دیتابیس باقی ماند.")
+
+
 @dp.message(Command("pool"))
 async def pool(m: Message):
     if not is_admin(m): return
