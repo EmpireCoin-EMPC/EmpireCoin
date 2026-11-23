@@ -546,16 +546,22 @@ async def activation_ok(m: Message):
     if not is_admin(m): return
     p=(m.text or "").split()
     if len(p)!=2 or not p[1].isdigit():
-        await m.answer("روش استفاده: /activation_ok USER_ID")
+        await m.answer("Usage: /activation_ok USER_ID")
         return
     uid=int(p[1]); start=now(); end=start+timedelta(days=WAIT_DAYS)
     with db() as c:
-        row=c.execute("SELECT activation_tx FROM users WHERE user_id=?",(uid,)).fetchone()
+        row=c.execute("SELECT activation_tx,lang FROM users WHERE user_id=?",(uid,)).fetchone()
         if not row or not row[0]:
-            await m.answer("برای این کاربر تراکنش ثبت نشده است."); return
+            await m.answer("No activation transaction found for this user."); return
         c.execute("UPDATE users SET activation_at=?,withdraw_after=? WHERE user_id=?",(start.isoformat(),end.isoformat(),uid))
-    await m.answer(f"فعال‌سازی کاربر {uid} تأیید شد. برداشت از {end.isoformat()} مجاز می‌شود.")
-    await bot.send_message(uid,f"پرداخت فعال‌سازی شما تأیید شد. امکان برداشت از {end.strftime('%Y-%m-%d %H:%M UTC')} فعال می‌شود.")
+    await m.answer(f"Activation for user {uid} approved. Withdrawal is available after {end.isoformat()}.")
+    lang = row[1] if row[1] in ("en","fa","ru") else "en"
+    notices = {
+        "en": f"Your activation payment has been confirmed. Withdrawals will be available from {end.strftime('%Y-%m-%d %H:%M UTC')}.",
+        "fa": f"پرداخت فعال‌سازی شما تأیید شد. برداشت از تاریخ {end.strftime('%Y-%m-%d %H:%M UTC')} فعال می‌شود.",
+        "ru": f"Ваш платёж за активацию подтверждён. Вывод средств будет доступен с {end.strftime('%Y-%m-%d %H:%M UTC')}."
+    }
+    await bot.send_message(uid, notices[lang])
 
 @dp.message(Command("approve"))
 async def approve(m: Message):
@@ -581,13 +587,22 @@ async def reject(m: Message):
 async def paid(m: Message):
     if not is_admin(m): return
     p=(m.text or "").split(maxsplit=2)
-    if len(p)!=3 or not p[1].isdigit(): await m.answer("روش استفاده: /paid REQUEST_ID TX_HASH"); return
+    if len(p)!=3 or not p[1].isdigit():
+        await m.answer("Usage: /paid REQUEST_ID TX_HASH")
+        return
     with db() as c:
         r=c.execute("SELECT user_id FROM withdrawals WHERE id=? AND status='approved'",(int(p[1]),)).fetchone()
-        if not r: await m.answer("درخواست تأییدشده پیدا نشد."); return
+        if not r: await m.answer("Approved withdrawal request not found."); return
         c.execute("UPDATE withdrawals SET status='paid',tx_hash=? WHERE id=?",(p[2],int(p[1])))
-    await m.answer("پرداخت به‌عنوان انجام‌شده ثبت شد.")
-    await bot.send_message(r[0],f"برداشت شما پرداخت شد. شناسه تراکنش: {p[2]}")
+        user_row=c.execute("SELECT lang FROM users WHERE user_id=?",(r[0],)).fetchone()
+    await m.answer("Payment marked as completed.")
+    lang = user_row[0] if user_row and user_row[0] in ("en","fa","ru") else "en"
+    notices = {
+        "en": f"Your withdrawal has been paid. Transaction hash: {p[2]}",
+        "fa": f"برداشت شما پرداخت شد. شناسه تراکنش: {p[2]}",
+        "ru": f"Ваш вывод оплачен. Хеш транзакции: {p[2]}"
+    }
+    await bot.send_message(r[0], notices[lang])
 
 @dp.message(Command("addtask"))
 async def addtask(m: Message):
