@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message, MenuButtonWebApp, WebAppInfo
+from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message, MenuButtonCommands, WebAppInfo
 from dotenv import load_dotenv
 from app.webapp_server import start_webapp_server
 
@@ -117,10 +117,13 @@ def activation_keyboard(lang):
         "ru": ("💳 Активировать аккаунт", "ℹ️ О проекте")
     }
     activate_label, info_label = labels.get(lang, labels["en"])
-    return InlineKeyboardMarkup(inline_keyboard=[
+    rows = [
         [InlineKeyboardButton(text=activate_label, callback_data="user:activate")],
         [InlineKeyboardButton(text=info_label, callback_data="user:info")]
-    ])
+    ]
+    if WEBAPP_URL:
+        rows.append([InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def referral_text(lang, link, count, total):
     texts = {
@@ -227,7 +230,7 @@ MENU_LABELS = {
 
 def user_menu_keyboard(lang="en"):
     a = MENU_LABELS.get(lang, MENU_LABELS["en"])
-    return InlineKeyboardMarkup(inline_keyboard=[
+    rows = [
         [InlineKeyboardButton(text=a[0], callback_data="user:balance"), InlineKeyboardButton(text=a[1], callback_data="user:mine")],
         [InlineKeyboardButton(text=a[2], callback_data="user:tasks"), InlineKeyboardButton(text=a[3], callback_data="user:lottery")],
         [InlineKeyboardButton(text=a[4], callback_data="user:wallet"), InlineKeyboardButton(text=a[5], callback_data="user:withdraw")],
@@ -235,7 +238,10 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text=a[9], callback_data="user:checkin"), InlineKeyboardButton(text=a[10], callback_data="user:referral")],
         [InlineKeyboardButton(text=a[11], callback_data="user:info")],
         [InlineKeyboardButton(text=a[8], callback_data="user:language")],
-    ])
+    ]
+    if WEBAPP_URL:
+        rows.append([InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def localized_task_text(row, lang):
     index = {"en": 0, "fa": 1, "ru": 2}.get(lang, 0)
@@ -1243,13 +1249,12 @@ async def main():
         BotCommand(command="task_approve", description="Approve task evidence"),
         BotCommand(command="task_reject", description="Reject task evidence"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
+    # Keep Telegram's three-line menu for bot commands; expose the Mini App as a separate inline button.
+    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
     if WEBAPP_URL:
-        await bot.set_chat_menu_button(
-            menu_button=MenuButtonWebApp(text="Open GRM", web_app=WebAppInfo(url=WEBAPP_URL))
-        )
-        print(f"[webapp] Telegram Mini App menu button configured: {WEBAPP_URL}")
+        print(f"[webapp] Mini App inline button enabled: {WEBAPP_URL}")
     else:
-        print("[webapp] WEBAPP_URL is not set; set a public HTTPS URL to enable the Telegram Mini App button.")
+        print("[webapp] WEBAPP_URL is not set; Mini App button is disabled.")
 
     await asyncio.gather(
         dp.start_polling(bot),
