@@ -71,9 +71,9 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                 c.execute("INSERT INTO users(user_id,username) VALUES(?,?)", (uid, tg.get("username", "")))
                 row = (tg.get("username", ""), 0, None, None, 0, None, None, "en", None)
             referral_total = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=?", (uid,)).fetchone()[0]
-        referral_activated = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
-        referral_pending = referral_total - referral_activated
-        pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+            referral_activated = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
+            referral_pending = referral_total - referral_activated
+            pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
             tasks = c.execute(
                 "SELECT id,title,title_en,title_fa,title_ru,reward,desc_en,desc_fa,desc_ru "
                 "FROM tasks WHERE active=1 ORDER BY id DESC LIMIT 30"
