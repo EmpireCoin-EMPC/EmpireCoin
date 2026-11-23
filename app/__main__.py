@@ -675,6 +675,50 @@ async def deltask(m: Message):
     await m.answer(f"وظیفه #{task_id} غیرفعال شد و دیگر به کاربران نمایش داده نمی‌شود. سابقه آن در دیتابیس باقی ماند.")
 
 
+@dp.message(Command("restoretask"))
+async def restoretask(m: Message):
+    if not is_admin(m):
+        return
+    parts = (m.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await m.answer("روش استفاده: /restoretask TASK_ID")
+        return
+    task_id = int(parts[1])
+    with db() as c:
+        cur = c.execute("UPDATE tasks SET active=1 WHERE id=? AND active=0", (task_id,))
+    if cur.rowcount:
+        await m.answer(f"وظیفه #{task_id} دوباره فعال شد و در فهرست کاربران نمایش داده می‌شود.")
+    else:
+        await m.answer("وظیفه غیرفعال با این شناسه پیدا نشد.")
+
+
+@dp.message(Command("edittask"))
+async def edittask(m: Message):
+    if not is_admin(m):
+        return
+    raw = (m.text or "").partition(" ")[2].strip()
+    parts = [part.strip() for part in raw.split("|")]
+    if len(parts) != 8 or not parts[0].isdigit() or not parts[7].isdigit() or int(parts[7]) <= 0 or not all(parts[1:4]):
+        await m.answer(
+            "روش استفاده:\\n/edittask ID | EN title | FA title | RU title | EN description | FA description | RU description | reward"
+        )
+        return
+    task_id = int(parts[0])
+    en_title, fa_title, ru_title, en_desc, fa_desc, ru_desc = parts[1:7]
+    reward = int(parts[7])
+    with db() as c:
+        cur = c.execute(
+            """UPDATE tasks SET title=?, title_en=?, title_fa=?, title_ru=?,
+               desc_en=?, desc_fa=?, desc_ru=?, reward=?
+               WHERE id=? AND active=1""",
+            (en_title, en_title, fa_title, ru_title, en_desc, fa_desc, ru_desc, reward, task_id)
+        )
+    if cur.rowcount:
+        await m.answer(f"وظیفه #{task_id} ویرایش شد. پاداش جدید فقط برای دریافت‌های بعدی اعمال می‌شود.")
+    else:
+        await m.answer("وظیفه فعال با این شناسه پیدا نشد. ابتدا /tasks_admin را بررسی کنید.")
+
+
 @dp.message(Command("pool"))
 async def pool(m: Message):
     if not is_admin(m): return
