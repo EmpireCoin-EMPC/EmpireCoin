@@ -54,6 +54,14 @@ def init_db():
         c.execute("UPDATE tasks SET title_en=COALESCE(title_en,title), title_fa=COALESCE(title_fa,title), title_ru=COALESCE(title_ru,title)")
         c.execute("""CREATE TABLE IF NOT EXISTS task_claims(
             user_id INTEGER, task_id INTEGER, PRIMARY KEY(user_id, task_id))""")
+        c.execute("""CREATE TABLE IF NOT EXISTS task_submissions(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            task_id INTEGER NOT NULL,
+            evidence TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            created_at TEXT NOT NULL,
+            reviewed_at TEXT)""")
         c.execute("""CREATE TABLE IF NOT EXISTS trades(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, details TEXT,
             status TEXT DEFAULT 'pending')""")
@@ -514,28 +522,134 @@ async def tasks(m: Message):
 
 @dp.message(Command("claim"))
 async def claim(m: Message):
-    p = (m.text or "").split()
+    raw = (m.text or "").partition(" ")[2].strip()
     lang = get_user_lang(m.from_user.id)
-    if len(p) != 2 or not p[1].isdigit():
-        await m.answer(uct(lang, "claim_usage"))
+    parts = raw.split(maxsplit=1)
+    if len(parts) != 2 or not parts[0].isdigit() or not parts[1].strip():
+        examples = {
+            "en": "Usage: /claim TASK_ID evidence (paste a link or describe what you completed).",
+            "fa": "روش استفاده: /claim شماره_وظیفه مدرک (لینک را بفرستید یا توضیح دهید چه کاری انجام داده‌اید).",
+            "ru": "Использование: /claim ID_ЗАДАНИЯ доказательство (вставьте ссылку или опишите выполненную работу)."
+        }
+        await m.answer(examples[lang])
         return
-    tid = int(p[1])
+    tid = int(parts[0])
+    evidence = parts[1].strip()
     with db() as c:
         task = c.execute("SELECT reward FROM tasks WHERE id=? AND active=1", (tid,)).fetchone()
         if not task:
             await m.answer(uct(lang, "task_missing"))
             return
-        try:
-            c.execute("INSERT INTO task_claims(user_id,task_id) VALUES(?,?)", (m.from_user.id,tid))
-        except sqlite3.IntegrityError:
+        already_paid = c.execute("SELECT 1 FROM task_claims WHERE user_id=? AND task_id=?", (m.from_user.id, tid)).fetchone()
+        if already_paid:
             await m.answer(uct(lang, "task_duplicate"))
             return
-        pool = int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
-        reward = min(task[0], pool)
-        c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (reward,m.from_user.id))
-        log_balance(c, m.from_user.id, reward, "task_reward", tid)
-        pool_change(c,-reward)
-    await m.answer(uct(lang, "task_paid", reward=reward))
+        pending = c.execute("SELECT id FROM task_submissions WHERE user_id=? AND task_id=? AND status='pending'", (m.from_user.id, tid)).fetchone()
+        if pending:
+            msgs = {"en": f"Your evidence is already waiting for review (submission #{pending[0]}).",
+                    "fa": f"مدرک شما قبلاً ارسال شده و منتظر بررسی است (درخواست #{pending[0]}).",
+                    "ru": f"Ваше доказательство уже ожидает проверки (заявка №{pending[0]})."}
+            await m.answer(msgs[lang])
+            return
+        cur = c.execute(
+            "INSERT INTO task_submissions(user_id,task_id,evidence,status,created_at) VALUES(?,?,?,'pending',?)",
+            (m.from_user.id, tid, evidence, now().isoformat())
+        )
+        submission_id = cur.lastrowid
+    confirmations = {
+        "en": f"Evidence submitted for task #{tid}. Reward: {task[0]} GRM. It will be credited only after admin approval. Submission #{submission_id}.",
+        "fa": f"مدرک وظیفه #{tid} ارسال شد. پاداش: {task[0]} GRM. فقط پس از تأیید مدیر به موجودی افزوده می‌شود. درخواست #{submission_id}.",
+        "ru": f"Доказательство для задания №{tid} отправлено. Награда: {task[0]} GRM. Она будет начислена только после одобрения администратора. Заявка №{submission_id}."
+    }
+    await m.answer(confirmations[lang])
+    if ADMIN_ID:
+        await bot.send_message(
+            ADMIN_ID,
+            f"Task submission #{submission_id}\nUser: {m.from_user.id}\nTask: #{tid}\nReward: {task[0]} GRM\nEvidence: {evidence}\nApprove: /task_approve {submission_id}\nReject: /task_reject {submission_id}"
+        )
+
+@dp.message(Command("task_pending"))
+async def task_pending(m: Message):
+    if not is_admin(m):
+        return
+    with db() as c:
+        rows = c.execute(
+            """SELECT s.id,s.user_id,s.task_id,t.reward,s.evidence,s.created_at
+               FROM task_submissions s JOIN tasks t ON t.id=s.task_id
+               WHERE s.status='pending' ORDER BY s.id"""
+        ).fetchall()
+    if not rows:
+        await m.answer("No task submissions are waiting for review.")
+        return
+    lines = ["Pending task submissions:"]
+    for sid, uid, tid, reward, evidence, created in rows:
+        lines.append(f"#{sid} | user={uid} | task=#{tid} | reward={reward} GRM | {created}\nEvidence: {evidence}\nApprove: /task_approve {sid} | Reject: /task_reject {sid}")
+    await m.answer("\n\n".join(lines))
+
+@dp.message(Command("task_approve"))
+async def task_approve(m: Message):
+    if not is_admin(m):
+        return
+    parts = (m.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await m.answer("Usage: /task_approve SUBMISSION_ID")
+        return
+    sid = int(parts[1])
+    with db() as c:
+        row = c.execute(
+            """SELECT s.user_id,s.task_id,t.reward,s.status
+               FROM task_submissions s JOIN tasks t ON t.id=s.task_id WHERE s.id=?""", (sid,)
+        ).fetchone()
+        if not row or row[3] != "pending":
+            await m.answer("Pending submission not found or already reviewed.")
+            return
+        uid, tid, requested_reward, _ = row
+        already_paid = c.execute("SELECT 1 FROM task_claims WHERE user_id=? AND task_id=?", (uid, tid)).fetchone()
+        pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+        pool = int(pool_row[0]) if pool_row else 0
+        if already_paid:
+            c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=?", (now().isoformat(), sid))
+            await m.answer("This user already received this task reward. Submission marked rejected.")
+            return
+        reward = min(int(requested_reward), pool)
+        if reward <= 0:
+            await m.answer("Mining pool is empty; submission remains pending.")
+            return
+        c.execute("INSERT INTO task_claims(user_id,task_id) VALUES(?,?)", (uid, tid))
+        c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (reward, uid))
+        log_balance(c, uid, reward, "task_reward", tid)
+        pool_change(c, -reward)
+        c.execute("UPDATE task_submissions SET status='approved',reviewed_at=? WHERE id=?", (now().isoformat(), sid))
+        user_row = c.execute("SELECT lang FROM users WHERE user_id=?", (uid,)).fetchone()
+    await m.answer(f"Submission #{sid} approved. {reward} GRM credited to user {uid}.")
+    lang = user_row[0] if user_row and user_row[0] in ("en","fa","ru") else "en"
+    notices = {"en": f"Your evidence for task #{tid} was approved. {reward} GRM has been added to your balance.",
+               "fa": f"مدرک وظیفه #{tid} تأیید شد و {reward} GRM به موجودی شما افزوده شد.",
+               "ru": f"Ваше доказательство задания №{tid} одобрено. На баланс начислено {reward} GRM."}
+    await bot.send_message(uid, notices[lang])
+
+@dp.message(Command("task_reject"))
+async def task_reject(m: Message):
+    if not is_admin(m):
+        return
+    parts = (m.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await m.answer("Usage: /task_reject SUBMISSION_ID")
+        return
+    sid = int(parts[1])
+    with db() as c:
+        row = c.execute("SELECT user_id,task_id,status FROM task_submissions WHERE id=?", (sid,)).fetchone()
+        if not row or row[2] != "pending":
+            await m.answer("Pending submission not found or already reviewed.")
+            return
+        c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=?", (now().isoformat(), sid))
+        user_row = c.execute("SELECT lang FROM users WHERE user_id=?", (row[0],)).fetchone()
+    await m.answer(f"Submission #{sid} rejected.")
+    lang = user_row[0] if user_row and user_row[0] in ("en","fa","ru") else "en"
+    notices = {"en": f"Your evidence for task #{row[1]} was rejected. You may submit new evidence with /claim {row[1]}.",
+               "fa": f"مدرک وظیفه #{row[1]} رد شد. می‌توانید مدرک تازه را با دستور /claim {row[1]} ارسال کنید.",
+               "ru": f"Ваше доказательство задания №{row[1]} отклонено. Вы можете отправить новое командой /claim {row[1]}."}
+    await bot.send_message(row[0], notices[lang])
 
 @dp.message(Command("trade"))
 @dp.message(Command("trade"))
@@ -924,6 +1038,9 @@ async def main():
         BotCommand(command="report", description="View bot statistics report"),
         BotCommand(command="user_info", description="View a user's account details"),
         BotCommand(command="history", description="View a user balance history"),
+        BotCommand(command="task_pending", description="Review task evidence"),
+        BotCommand(command="task_approve", description="Approve task evidence"),
+        BotCommand(command="task_reject", description="Reject task evidence"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
     await dp.start_polling(bot)
 
