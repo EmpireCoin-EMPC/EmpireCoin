@@ -12,11 +12,11 @@ load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
 DB_PATH = os.getenv("DB_PATH", "bot.db")
-COMPANY_WALLET = os.getenv("TON_COMPANY_WALLET", "")
+COMPANY_WALLET = os.getenv("GRAM_COMPANY_WALLET", "")
 HOURLY_REWARD = int(os.getenv("HOURLY_REWARD", "10"))
 POOL_START = int(os.getenv("MINING_POOL", "172000000"))
 FEE_PERCENT = int(os.getenv("WITHDRAWAL_FEE_PERCENT", "10"))
-ACTIVATION_FEE = os.getenv("ACTIVATION_FEE_TON", "0.5")
+ACTIVATION_FEE = os.getenv("ACTIVATION_FEE_GRAM", "0.5")
 WAIT_DAYS = int(os.getenv("ACTIVATION_WAIT_DAYS", "30"))
 
 def now():
@@ -85,7 +85,7 @@ async def balance(m: Message):
     with db() as c:
         row = c.execute("SELECT balance,withdraw_after FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
         pool = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
-    status = f"زمان مجاز برداشت: {row[1]}" if row[1] else "فعال‌سازی 0.5 TON هنوز تأیید نشده است."
+    status = f"زمان مجاز برداشت: {row[1]}" if row[1] else "فعال‌سازی 0.5 GRAM هنوز تأیید نشده است."
     await m.answer(f"موجودی: {row[0]} GRM\nاستخر باقی‌مانده: {pool} GRM\n{status}")
 
 @dp.message(Command("mine"))
@@ -113,14 +113,14 @@ async def activate(m: Message):
     user_upsert(m)
     parts = (m.text or "").split(maxsplit=1)
     if len(parts) != 2 or len(parts[1].strip()) < 8:
-        await m.answer(f"روش استفاده: /activate TX_HASH\nابتدا دقیقاً 0.5 TON به کیف پول شرکت بفرستید:\n{COMPANY_WALLET}\nسپس /activate TX_HASH را اجرا کنید. برداشت فقط 30 روز پس از تأیید دستی تراکنش توسط مدیر فعال می‌شود.")
+        await m.answer(f"روش استفاده: /activate TX_HASH\nابتدا دقیقاً 0.5 GRAM به کیف پول شرکت بفرستید:\n{COMPANY_WALLET}\nسپس /activate TX_HASH را اجرا کنید. برداشت فقط 30 روز پس از تأیید دستی تراکنش توسط مدیر فعال می‌شود.")
         return
     tx = parts[1].strip()
     with db() as c:
         c.execute("UPDATE users SET activation_tx=?,activation_at=NULL,withdraw_after=NULL WHERE user_id=?", (tx, m.from_user.id))
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"درخواست بررسی فعال‌سازی\nکاربر: {m.from_user.id}\nTX: {tx}\nمبلغ مورد انتظار: {ACTIVATION_FEE} TON\nکیف پول مقصد: {COMPANY_WALLET}\nپس از بررسی در TON explorer: /activation_ok {m.from_user.id}")
-    await m.answer(f"شناسه تراکنش ثبت شد و در انتظار بررسی مدیر است. مبلغ موردنیاز: 0.5 TON\nکیف پول شرکت: {COMPANY_WALLET}\nزمان 30 روزه فقط پس از بررسی و تأیید واقعی پرداخت توسط مدیر شروع می‌شود.")
+        await bot.send_message(ADMIN_ID, f"درخواست بررسی فعال‌سازی\nکاربر: {m.from_user.id}\nTX: {tx}\nمبلغ مورد انتظار: {ACTIVATION_FEE} GRAM\nکیف پول مقصد: {COMPANY_WALLET}\nپس از بررسی در TON explorer: /activation_ok {m.from_user.id}")
+    await m.answer(f"شناسه تراکنش ثبت شد و در انتظار بررسی مدیر است. مبلغ موردنیاز: 0.5 GRAM\nکیف پول شرکت: {COMPANY_WALLET}\nزمان 30 روزه فقط پس از بررسی و تأیید واقعی پرداخت توسط مدیر شروع می‌شود.")
 
 @dp.message(Command("setwallet"))
 async def setwallet(m: Message):
@@ -145,7 +145,7 @@ async def withdraw(m: Message):
             await m.answer("ابتدا کیف پول TON خود را با /setwallet ثبت کنید.")
             return
         if not u[2] or now() < datetime.fromisoformat(u[2]):
-            await m.answer(f"برداشت هنوز فعال نیست. ابتدا 0.5 TON را پرداخت و فعال‌سازی را تأیید کنید؛ سپس باید {WAIT_DAYS} روز از زمان تأیید بگذرد.")
+            await m.answer(f"برداشت هنوز فعال نیست. ابتدا 0.5 GRAM را پرداخت و فعال‌سازی را تأیید کنید؛ سپس باید {WAIT_DAYS} روز از زمان تأیید بگذرد.")
             return
         if amount > u[0]:
             await m.answer("موجودی کافی نیست.")
