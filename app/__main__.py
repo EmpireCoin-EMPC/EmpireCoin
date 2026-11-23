@@ -254,8 +254,8 @@ async def user_menu_actions(q: CallbackQuery):
                     text = ut(lang, "mine_ok", reward=reward)
     elif action == "tasks":
         with db() as c:
-            rows = c.execute("SELECT id,title,reward FROM tasks WHERE active=1").fetchall()
-        text = "\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or ut(lang, "tasks_empty")
+            rows = c.execute("SELECT id,title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru FROM tasks WHERE active=1").fetchall()
+        text = "\\n\\n".join([localized_task_text(row, lang) for row in rows]) or ut(lang, "tasks_empty")
         if rows:
             text += ut(lang, "claim_hint")
     elif action == "lottery":
@@ -484,8 +484,8 @@ async def withdraw(m: Message):
 async def tasks(m: Message):
     lang = get_user_lang(m.from_user.id)
     with db() as c:
-        rows = c.execute("SELECT id,title,reward FROM tasks WHERE active=1").fetchall()
-    await m.answer("\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or uct(lang, "tasks_empty"))
+        rows = c.execute("SELECT id,title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru FROM tasks WHERE active=1").fetchall()
+    await m.answer("\\n\\n".join([localized_task_text(row, lang) for row in rows]) or uct(lang, "tasks_empty"))
 
 @dp.message(Command("claim"))
 async def claim(m: Message):
