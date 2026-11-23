@@ -69,6 +69,83 @@ bot = Bot(TOKEN)
 dp = Dispatcher()
 
 
+
+def user_menu_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💰 موجودی من", callback_data="user:balance"),
+         InlineKeyboardButton(text="⛏ استخراج ساعتی", callback_data="user:mine")],
+        [InlineKeyboardButton(text="📋 وظایف", callback_data="user:tasks"),
+         InlineKeyboardButton(text="🎟 شرکت در قرعه‌کشی", callback_data="user:lottery")],
+        [InlineKeyboardButton(text="👛 ثبت کیف پول", callback_data="user:wallet"),
+         InlineKeyboardButton(text="💸 درخواست برداشت", callback_data="user:withdraw")],
+        [InlineKeyboardButton(text="🤝 درخواست معامله", callback_data="user:trade"),
+         InlineKeyboardButton(text="💳 فعال‌سازی حساب", callback_data="user:activate")],
+    ])
+
+def user_upsert_from_id(user_id: int, username: str):
+    with db() as c:
+        c.execute("INSERT INTO users(user_id,username) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
+                  (user_id, username))
+
+@dp.callback_query(F.data.startswith("user:"))
+async def user_menu_actions(q: CallbackQuery):
+    if not q.from_user:
+        await q.answer()
+        return
+    uid = q.from_user.id
+    action = q.data.split(":", 1)[1]
+    user_upsert_from_id(uid, q.from_user.username or "")
+    if action == "balance":
+        with db() as c:
+            row = c.execute("SELECT balance,withdraw_after FROM users WHERE user_id=?", (uid,)).fetchone()
+            pool = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
+        status = f"زمان مجاز برداشت: {row[1]}" if row[1] else "فعال‌سازی 0.5 GRAM هنوز تأیید نشده است."
+        text = f"موجودی: {row[0]} GRM\\nاستخر باقی‌مانده: {pool} GRM\\n{status}"
+    elif action == "mine":
+        t = now()
+        with db() as c:
+            row = c.execute("SELECT last_mine FROM users WHERE user_id=?", (uid,)).fetchone()
+            pool = int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
+            if row[0] and t - datetime.fromisoformat(row[0]) < timedelta(hours=1):
+                left = timedelta(hours=1) - (t - datetime.fromisoformat(row[0]))
+                text = f"هنوز یک ساعت کامل نشده است. زمان باقی‌مانده: {str(left).split('.')[0]}"
+            else:
+                reward = min(HOURLY_REWARD, pool)
+                if reward <= 0:
+                    text = "استخر استخراج موجودی ندارد."
+                else:
+                    c.execute("UPDATE users SET balance=balance+?,last_mine=? WHERE user_id=?", (reward, t.isoformat(), uid))
+                    pool_change(c, -reward)
+                    text = f"{reward} GRM به موجودی شما اضافه شد."
+    elif action == "tasks":
+        with db() as c:
+            rows = c.execute("SELECT id,title,reward FROM tasks WHERE active=1").fetchall()
+        text = "\\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or "فعلاً وظیفه‌ای ثبت نشده است."
+        text += "\\nبرای دریافت پاداش: /claim شماره_وظیفه"
+    elif action == "lottery":
+        with db() as c:
+            lot = c.execute("SELECT id FROM lotteries WHERE status='open' ORDER BY id DESC LIMIT 1").fetchone()
+            if not lot:
+                text = "قرعه‌کشی فعالی وجود ندارد."
+            else:
+                try:
+                    c.execute("INSERT INTO lottery_entries(lottery_id,user_id) VALUES(?,?)", (lot[0], uid))
+                    text = "در قرعه‌کشی ثبت شدید."
+                except sqlite3.IntegrityError:
+                    text = "قبلاً در این قرعه‌کشی ثبت شده‌اید."
+    elif action == "wallet":
+        text = "برای ثبت کیف پول این دستور را بفرستید:\\n/setwallet آدرس_کیف_پول"
+    elif action == "withdraw":
+        text = "برای درخواست برداشت این دستور را با مقدار GRM بفرستید:\\n/withdraw مقدار\\nبرداشت پس از فعال‌سازی و گذشت ۳۰ روز ممکن است."
+    elif action == "trade":
+        text = "برای درخواست معامله این دستور را بفرستید:\\n/trade توضیحات معامله"
+    elif action == "activate":
+        text = f"مبلغ فعال‌سازی: {ACTIVATION_FEE} GRAM\\nکیف پول شرکت:\\n{COMPANY_WALLET}\\nپس از پرداخت و بررسی واقعی، شناسه تراکنش را بفرستید:\\n/activate TX_HASH"
+    else:
+        text = "گزینه نامعتبر است."
+    await q.message.answer(text, reply_markup=user_menu_keyboard())
+    await q.answer()
+
 def admin_panel_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👥 کاربران", callback_data="panel:users"),
@@ -177,7 +254,7 @@ async def start(m: Message):
         "/setwallet آدرس_کیف_پول\n/withdraw مقدار درخواست برداشت\n"
         "/tasks مشاهده وظایف\n/claim شماره_وظیفه\n/trade توضیحات معامله\n/lottery_join ورود به قرعه‌کشی"
         + ("\n/admin پنل مدیریت" if is_admin(m) else ""),
-        reply_markup=admin_panel_keyboard() if is_admin(m) else None
+        reply_markup=admin_panel_keyboard() if is_admin(m) else user_menu_keyboard()
     )
 
 @dp.message(Command("balance"))
