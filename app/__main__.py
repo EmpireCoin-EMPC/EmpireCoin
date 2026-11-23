@@ -719,6 +719,64 @@ async def edittask(m: Message):
         await m.answer("وظیفه فعال با این شناسه پیدا نشد. ابتدا /tasks_admin را بررسی کنید.")
 
 
+@dp.message(Command("report"))
+async def report(m: Message):
+    if not is_admin(m):
+        return
+    with db() as c:
+        users = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        balances = c.execute("SELECT COALESCE(SUM(balance),0) FROM users").fetchone()[0]
+        pool = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
+        tasks_count = c.execute("SELECT COUNT(*) FROM tasks WHERE active=1").fetchone()[0]
+        pending_withdrawals = c.execute("SELECT COUNT(*),COALESCE(SUM(amount),0) FROM withdrawals WHERE status='pending'").fetchone()
+        approved_withdrawals = c.execute("SELECT COUNT(*) FROM withdrawals WHERE status='approved'").fetchone()[0]
+        pending_trades = c.execute("SELECT COUNT(*) FROM trades WHERE status='pending'").fetchone()[0]
+        open_lotteries = c.execute("SELECT COUNT(*) FROM lotteries WHERE status='open'").fetchone()[0]
+    await m.answer(
+        "گزارش کلی ربات\\n"
+        f"کاربران ثبت‌شده: {users}\\n"
+        f"مجموع موجودی کاربران: {balances} GRM\\n"
+        f"باقی‌مانده استخر: {pool} GRM\\n"
+        f"وظایف فعال: {tasks_count}\\n"
+        f"برداشت‌های در انتظار: {pending_withdrawals[0]} (مجموع {pending_withdrawals[1]} GRM)\\n"
+        f"برداشت‌های تأییدشده و پرداخت‌نشده: {approved_withdrawals}\\n"
+        f"معاملات در انتظار: {pending_trades}\\n"
+        f"قرعه‌کشی‌های باز: {open_lotteries}"
+    )
+
+
+@dp.message(Command("user_info"))
+async def user_info(m: Message):
+    if not is_admin(m):
+        return
+    parts = (m.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await m.answer("روش استفاده: /user_info USER_ID")
+        return
+    uid = int(parts[1])
+    with db() as c:
+        row = c.execute(
+            "SELECT username,balance,wallet,lang,activation_tx,activation_at,withdraw_after,last_mine FROM users WHERE user_id=?",
+            (uid,)
+        ).fetchone()
+    if not row:
+        await m.answer("کاربری با این شناسه پیدا نشد.")
+        return
+    username, balance, wallet, lang, activation_tx, activation_at, withdraw_after, last_mine = row
+    lang_name = {"en": "English", "fa": "فارسی", "ru": "Русский"}.get(lang, "English")
+    await m.answer(
+        f"اطلاعات کاربر {uid}\\n"
+        f"نام کاربری: @{username or 'ندارد'}\\n"
+        f"موجودی: {balance} GRM\\n"
+        f"کیف پول: {wallet or 'ثبت نشده'}\\n"
+        f"زبان: {lang_name}\\n"
+        f"شناسه تراکنش فعال‌سازی: {activation_tx or 'ثبت نشده'}\\n"
+        f"زمان تأیید فعال‌سازی: {activation_at or 'تأیید نشده'}\\n"
+        f"زمان مجاز برداشت: {withdraw_after or 'هنوز تعیین نشده'}\\n"
+        f"آخرین استخراج: {last_mine or 'هنوز استخراج نکرده'}"
+    )
+
+
 @dp.message(Command("pool"))
 async def pool(m: Message):
     if not is_admin(m): return
@@ -808,6 +866,8 @@ async def main():
         BotCommand(command="reject_trade", description="Reject a trade"),
         BotCommand(command="lottery_create", description="Create a lottery"),
         BotCommand(command="lottery_draw", description="Draw lottery winner"),
+        BotCommand(command="report", description="View bot statistics report"),
+        BotCommand(command="user_info", description="View a user's account details"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
     await dp.start_polling(bot)
 
