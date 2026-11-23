@@ -264,7 +264,7 @@ USER_TEXT = {
   "wallet":"To save your wallet, send:\n/setwallet WALLET_ADDRESS",
   "withdraw":"To request a withdrawal, send:\n/withdraw AMOUNT\nWithdrawals are available 30 days after activation approval.",
   "trade":"To request a trade, send:\n/trade TRADE_DETAILS",
-  "activate":"Activation fee: {fee} GRAM\nCompany wallet:\n{wallet}\nAfter payment, submit the transaction hash using /activate TX_HASH",
+  "activate":"Step 1: Save your own TON wallet with /setwallet WALLET_ADDRESS.\nStep 2: Pay {fee} GRAM to the company wallet below.\nStep 3: Submit /activate TX_HASH. Mining is locked until the administrator confirms the payment.\nCompany wallet:\n{wallet}",
   "invalid":"Unknown option.", "copy_company":"📋 Copy company wallet", "copy_wallet":"📋 Copy my wallet"
  },
  "fa": {
@@ -277,7 +277,7 @@ USER_TEXT = {
   "wallet":"برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS",
   "withdraw":"برای درخواست برداشت بفرستید:\n/withdraw AMOUNT\nبرداشت ۳۰ روز پس از تأیید فعال‌سازی ممکن است.",
   "trade":"برای درخواست معامله بفرستید:\n/trade TRADE_DETAILS",
-  "activate":"مبلغ فعال‌سازی: {fee} GRAM\nکیف پول شرکت:\n{wallet}\nپس از پرداخت، شناسه تراکنش را با دستور /activate TX_HASH بفرستید.",
+  "activate":"مرحله ۱: والت خود را با /setwallet آدرس_والت ثبت کنید.\nمرحله ۲: مبلغ {fee} GRAM را به والت شرکت بفرستید.\nمرحله ۳: دستور /activate TX_HASH را ارسال کنید. تا تأیید مدیر، ماین فعال نمی‌شود.\nوالت شرکت:\n{wallet}",
   "invalid":"گزینه نامعتبر است.", "copy_company":"📋 کپی آدرس کیف پول شرکت", "copy_wallet":"📋 کپی آدرس کیف پول من"
  },
  "ru": {
@@ -290,7 +290,7 @@ USER_TEXT = {
   "wallet":"Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS",
   "withdraw":"Чтобы запросить вывод, отправьте:\n/withdraw AMOUNT\nВывод доступен через 30 дней после подтверждения активации.",
   "trade":"Чтобы запросить сделку, отправьте:\n/trade TRADE_DETAILS",
-  "activate":"Плата за активацию: {fee} GRAM\nКошелёк компании:\n{wallet}\nПосле оплаты отправьте хеш транзакции командой /activate TX_HASH",
+  "activate":"Шаг 1: Укажите свой TON-кошелёк командой /setwallet АДРЕС.\nШаг 2: Отправьте {fee} GRAM на кошелёк компании.\nШаг 3: Пришлите /activate TX_HASH. Майнинг откроется только после подтверждения администратора.\nКошелёк компании:\n{wallet}",
   "invalid":"Неизвестная команда.", "copy_company":"📋 Копировать кошелёк компании", "copy_wallet":"📋 Копировать мой кошелёк"
  }
 }
@@ -534,9 +534,9 @@ async def start(m: Message):
                           (inviter, m.from_user.id))
     lang = get_user_lang(m.from_user.id)
     welcome = {
-        "en": "Welcome to GRM Mining!\nChoose an option below.",
-        "fa": "به ربات GRM Mining خوش آمدید!\nیکی از گزینه‌های زیر را انتخاب کنید.",
-        "ru": "Добро пожаловать в GRM Mining!\nВыберите действие ниже."
+        "en": "Welcome to GRM Mining!\nBefore mining, you must save your wallet, pay 0.5 GRAM to the company wallet, and submit the transaction for admin verification.",
+        "fa": "به ربات GRM Mining خوش آمدید!\nپیش از ماین باید والت خود را ثبت کنید، ۰٫۵ GRAM به والت شرکت بپردازید و تراکنش را برای تأیید مدیر ارسال کنید.",
+        "ru": "Добро пожаловать в GRM Mining!\nПеред майнингом укажите кошелёк, оплатите 0.5 GRAM на кошелёк компании и отправьте транзакцию на проверку администратору."
     }
     await m.answer(
         welcome[lang] + ("\n/admin — admin panel" if is_admin(m) else ""),
