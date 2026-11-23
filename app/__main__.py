@@ -209,9 +209,9 @@ def language_keyboard():
     ])
 
 MENU_LABELS = {
-    "en": ["💰 My balance", "⛏ Hourly mining", "📋 Tasks", "🎟 Lottery", "👛 Set wallet", "💸 Withdraw", "🤝 Trade", "💳 Activate account", "🌐 Language", "📅 Daily check-in", "👥 Referrals"],
-    "fa": ["💰 موجودی من", "⛏ استخراج ساعتی", "📋 وظایف", "🎟 قرعه‌کشی", "👛 ثبت کیف پول", "💸 درخواست برداشت", "🤝 معامله", "💳 فعال‌سازی حساب", "🌐 تغییر زبان", "📅 دیلی‌چک‌این", "👥 دعوت دوستان"],
-    "ru": ["💰 Мой баланс", "⛏ Почасовая добыча", "📋 Задания", "🎟 Лотерея", "👛 Мой кошелёк", "💸 Вывод", "🤝 Сделка", "💳 Активация", "🌐 Язык", "📅 Ежедневный вход", "👥 Рефералы"],
+    "en": ["💰 My balance", "⛏ Hourly mining", "📋 Tasks", "🎟 Lottery", "👛 Set wallet", "💸 Withdraw", "🤝 Trade", "💳 Activate account", "🌐 Language", "📅 Daily check-in", "👥 Referrals", "ℹ️ Project information"],
+    "fa": ["💰 موجودی من", "⛏ استخراج ساعتی", "📋 وظایف", "🎟 قرعه‌کشی", "👛 ثبت کیف پول", "💸 درخواست برداشت", "🤝 معامله", "💳 فعال‌سازی حساب", "🌐 تغییر زبان", "📅 دیلی‌چک‌این", "👥 دعوت دوستان", "ℹ️ اطلاعات پروژه"],
+    "ru": ["💰 Мой баланс", "⛏ Почасовая добыча", "📋 Задания", "🎟 Лотерея", "👛 Мой кошелёк", "💸 Вывод", "🤝 Сделка", "💳 Активация", "🌐 Язык", "📅 Ежедневный вход", "👥 Рефералы", "ℹ️ О проекте"],
 }
 
 def user_menu_keyboard(lang="en"):
@@ -222,6 +222,7 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text=a[4], callback_data="user:wallet"), InlineKeyboardButton(text=a[5], callback_data="user:withdraw")],
         [InlineKeyboardButton(text=a[6], callback_data="user:trade"), InlineKeyboardButton(text=a[7], callback_data="user:activate")],
         [InlineKeyboardButton(text=a[9], callback_data="user:checkin"), InlineKeyboardButton(text=a[10], callback_data="user:referral")],
+        [InlineKeyboardButton(text=a[11], callback_data="user:info")],
         [InlineKeyboardButton(text=a[8], callback_data="user:language")],
     ])
 
@@ -342,6 +343,15 @@ async def user_menu_actions(q: CallbackQuery):
     if action == "language":
         prompts = {"en": "Choose your language:", "fa": "زبان خود را انتخاب کنید:", "ru": "Выберите язык:"}
         await q.message.answer(prompts[lang], reply_markup=language_keyboard())
+        await q.answer()
+        return
+    if action == "info":
+        info_texts = {
+            "en": "GRM MINING — PROJECT INFORMATION\nToken: GRM | Network: TON\nContract address (provided by project operator; independent verification is not claimed):\n0:b8ef4f77a17e5785bd31ba4da50abd91852f2b8febee97ad6ee16d941f939198\n\nActivation: register your TON wallet, pay 0.5 GRAM to the company wallet, then submit /activate TX_HASH. Admin manually verifies payment before mining is enabled.\nCompany activation wallet:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 GRM and increases by 50 GRM per successful check-in, reaching 1,500 GRM on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 GRM, 10% fee, 30 successful check-ins and admin review required.\nReferrals: 500 GRM per invited user after the invitee pays 0.5 GRAM and admin confirms activation.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 GRM allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
+            "fa": "اطلاعات پروژه GRM MINING\nتوکن: GRM | شبکه: TON\nآدرس قرارداد اعلام‌شده از سوی مدیر پروژه (این متن به معنی تأیید مستقل قرارداد نیست):\n0:b8ef4f77a17e5785bd31ba4da50abd91852f2b8febee97ad6ee16d941f939198\n\nفعال‌سازی: والت TON خود را ثبت کنید، ۰٫۵ GRAM به والت شرکت بپردازید و سپس /activate TX_HASH را ارسال کنید. مدیر پرداخت را دستی بررسی می‌کند؛ پیش از تأیید، ماین فعال نیست.\nوالت شرکت برای فعال‌سازی:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nدیلی‌چک‌این: ۳۰ نوبت موفق لازم است. پاداش از ۵۰ GRM شروع می‌شود و در هر نوبت موفق ۵۰ GRM افزایش می‌یابد تا نوبت ۳۰ با ۱٬۵۰۰ GRM. روزهای جاافتاده پیشرفت را متوقف می‌کنند؛ چک‌این بعدی از شماره بعدی ادامه می‌یابد.\n\nبرداشت: حداقل ۱۷٬۰۰۰ GRM، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nریفرال: برای هر دعوت‌شده، پس از پرداخت ۰٫۵ GRAM و تأیید فعال‌سازی توسط ادمین، ۵۰۰ GRM به دعوت‌کننده تعلق می‌گیرد.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ GRM مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
+            "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ GRM MINING\nТокен: GRM | Сеть: TON\nАдрес контракта, предоставленный оператором проекта (независимая проверка не заявляется):\n0:b8ef4f77a17e5785bd31ba4da50abd91852f2b8febee97ad6ee16d941f939198\n\nАктивация: укажите TON-кошелёк, отправьте 0.5 GRAM на кошелёк компании и пришлите /activate TX_HASH. Администратор проверяет платёж вручную; до подтверждения майнинг недоступен.\nКошелёк компании для активации:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nЕжедневные отметки: необходимо 30 успешных отметок. Награда начинается с 50 GRM и увеличивается на 50 GRM за каждую успешную отметку, достигая 1 500 GRM на отметке 30. Пропуск дня приостанавливает прогресс; следующая отметка продолжает последовательность.\n\nВывод: минимум 17 000 GRM, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРефералы: 500 GRM пригласившему после оплаты приглашённым 0.5 GRAM и подтверждения активации администратором.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 GRM — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
+        }
+        await q.message.answer(info_texts[lang])
         await q.answer()
         return
     if action not in ("activate", "wallet", "referral") and not is_user_activated(uid):
