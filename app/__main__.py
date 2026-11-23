@@ -111,6 +111,22 @@ def user_upsert_from_id(user_id: int, username: str):
         c.execute("INSERT INTO users(user_id,username) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
                   (user_id, username))
 
+@dp.callback_query(F.data.startswith("lang:"))
+async def choose_language(q: CallbackQuery):
+    if not q.from_user:
+        await q.answer()
+        return
+    lang = q.data.split(":", 1)[1]
+    if lang not in ("en", "fa", "ru"):
+        await q.answer("Invalid language", show_alert=True)
+        return
+    user_upsert_from_id(q.from_user.id, q.from_user.username or "")
+    with db() as c:
+        c.execute("UPDATE users SET lang=? WHERE user_id=?", (lang, q.from_user.id))
+    messages = {"en": "Language saved.", "fa": "زبان شما ذخیره شد.", "ru": "Язык сохранён."}
+    await q.message.answer(messages[lang], reply_markup=user_menu_keyboard(lang))
+    await q.answer()
+
 @dp.callback_query(F.data.startswith("user:"))
 async def user_menu_actions(q: CallbackQuery):
     if not q.from_user:
@@ -119,6 +135,12 @@ async def user_menu_actions(q: CallbackQuery):
     uid = q.from_user.id
     action = q.data.split(":", 1)[1]
     user_upsert_from_id(uid, q.from_user.username or "")
+    lang = get_user_lang(uid)
+    if action == "language":
+        prompts = {"en": "Choose your language:", "fa": "زبان خود را انتخاب کنید:", "ru": "Выберите язык:"}
+        await q.message.answer(prompts[lang], reply_markup=language_keyboard())
+        await q.answer()
+        return
     if action == "balance":
         with db() as c:
             row = c.execute("SELECT balance,withdraw_after FROM users WHERE user_id=?", (uid,)).fetchone()
