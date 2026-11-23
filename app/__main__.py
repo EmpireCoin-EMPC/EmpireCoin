@@ -344,6 +344,10 @@ async def user_menu_actions(q: CallbackQuery):
         await q.message.answer(prompts[lang], reply_markup=language_keyboard())
         await q.answer()
         return
+    if action not in ("activate", "wallet", "referral") and not is_user_activated(uid):
+        await q.message.answer(activation_prompt(lang), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
+        await q.answer()
+        return
     if action == "checkin":
         await q.message.answer(await daily_checkin(uid, lang))
         await q.answer()
@@ -649,6 +653,8 @@ async def withdraw(m: Message):
 @dp.message(Command("tasks"))
 async def tasks(m: Message):
     lang = get_user_lang(m.from_user.id)
+    if not is_user_activated(m.from_user.id):
+        await m.answer(activation_prompt(lang)); return
     with db() as c:
         rows = c.execute("SELECT id,title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru FROM tasks WHERE active=1").fetchall()
     await m.answer("\n\n".join([localized_task_text(row, lang) for row in rows]) or uct(lang, "tasks_empty"))
@@ -656,6 +662,8 @@ async def tasks(m: Message):
 @dp.message(Command("claim"))
 async def claim(m: Message):
     lang = get_user_lang(m.from_user.id)
+    if not is_user_activated(m.from_user.id):
+        await m.answer(activation_prompt(lang)); return
     raw = (m.text or m.caption or "").partition(" ")[2].strip()
     parts = raw.split(maxsplit=1)
     if not parts or not parts[0].isdigit():
@@ -801,6 +809,8 @@ async def task_reject(m: Message):
 async def trade(m: Message):
     p=(m.text or "").split(maxsplit=1)
     lang = get_user_lang(m.from_user.id)
+    if not is_user_activated(m.from_user.id):
+        await m.answer(activation_prompt(lang)); return
     if len(p)!=2:
         await m.answer(uct(lang, "trade_usage"))
         return
@@ -814,6 +824,8 @@ async def trade(m: Message):
 @dp.message(Command("lottery_join"))
 async def lottery_join(m: Message):
     lang = get_user_lang(m.from_user.id)
+    if not is_user_activated(m.from_user.id):
+        await m.answer(activation_prompt(lang)); return
     with db() as c:
         lot=c.execute("SELECT id FROM lotteries WHERE status='open' ORDER BY id DESC LIMIT 1").fetchone()
         if not lot:
@@ -849,12 +861,15 @@ async def activation_ok(m: Message):
             await m.answer("This user is already activated."); return
         c.execute("UPDATE users SET activation_at=?,withdraw_after=NULL WHERE user_id=?",(start.isoformat(),uid))
         inviter = row[2]
-        reward_referral = bool(inviter and not row[3])
+        pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+        available_pool = int(pool_row[0]) if pool_row else 0
+        reward_referral = bool(inviter and not row[3] and available_pool >= 500)
         if reward_referral:
             c.execute("UPDATE users SET balance=balance+500 WHERE user_id=?", (inviter,))
             log_balance(c, inviter, 500, "referral_reward", uid)
+            pool_change(c, -500)
             c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?", (uid,))
-    await m.answer(f"Activation for user {uid} approved. Withdrawal is available after {end.isoformat()}.")
+    await m.answer(f"Activation for user {uid} approved. 30 successful check-ins and a 17,000 GRM minimum balance are required for withdrawal.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
         "en": "Your activation payment is confirmed. You may now mine and use the bot. Withdrawals require 30 successful daily check-ins and a minimum balance of 17,000 GRM.",
