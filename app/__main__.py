@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import BotCommand, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -69,6 +69,11 @@ bot = Bot(TOKEN)
 dp = Dispatcher()
 
 
+
+def copy_text_keyboard(value: str, label: str = "📋 کپی"):
+    return InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(text=label, copy_text=CopyTextButton(text=value))
+    ]]) if value else None
 
 def user_menu_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -143,7 +148,7 @@ async def user_menu_actions(q: CallbackQuery):
         text = f"مبلغ فعال‌سازی: {ACTIVATION_FEE} GRAM\\nکیف پول شرکت:\\n{COMPANY_WALLET}\\nپس از پرداخت و بررسی واقعی، شناسه تراکنش را بفرستید:\\n/activate TX_HASH"
     else:
         text = "گزینه نامعتبر است."
-    await q.message.answer(text, reply_markup=user_menu_keyboard())
+    await q.message.answer(text, reply_markup=(copy_text_keyboard(COMPANY_WALLET, "📋 کپی آدرس کیف پول شرکت") if action == "activate" and COMPANY_WALLET else user_menu_keyboard()))
     await q.answer()
 
 def admin_panel_keyboard():
@@ -308,7 +313,7 @@ async def setwallet(m: Message):
         return
     with db() as c:
         c.execute("UPDATE users SET wallet=? WHERE user_id=?", (p[1].strip(), m.from_user.id))
-    await m.answer("آدرس کیف پول ذخیره شد. قبل از برداشت، آن را با دقت بررسی کنید.")
+    await m.answer(f"آدرس کیف پول ذخیره شد:\\n{p[1].strip()}\\nقبل از برداشت، آن را با دقت بررسی کنید.", reply_markup=copy_text_keyboard(p[1].strip(), "📋 کپی آدرس کیف پول من"))
 
 @dp.message(Command("withdraw"))
 async def withdraw(m: Message):
