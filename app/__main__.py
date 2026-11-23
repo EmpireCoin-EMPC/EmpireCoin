@@ -1186,6 +1186,53 @@ async def lottery_create(m: Message):
         cur=c.execute("INSERT INTO lotteries(prize) VALUES(?)",(prize,))
     await m.answer(f"قرعه‌کشی #{cur.lastrowid} با جایزه {prize} GRM ایجاد شد.")
 
+@dp.message(Command("sendmsg"))
+async def admin_send_private_message(m: Message):
+    if not is_admin(m):
+        return
+    raw = (m.text or "").partition(" ")[2].strip()
+    parts = raw.split(maxsplit=1)
+    if len(parts) != 2:
+        await m.answer(
+            "روش استفاده:\n/sendmsg USER_ID[,USER_ID...] متن پیام\n"
+            "نمونه: /sendmsg 123456789,987654321 سلام! شما برنده قرعه‌کشی شدید."
+        )
+        return
+    raw_ids, message_text = parts
+    try:
+        recipient_ids = list(dict.fromkeys(int(x.strip()) for x in raw_ids.split(",") if x.strip()))
+    except ValueError:
+        await m.answer("شناسه کاربران باید عددی و با کاما از هم جدا شده باشند.")
+        return
+    if not recipient_ids or len(recipient_ids) > 20 or any(uid <= 0 for uid in recipient_ids):
+        await m.answer("در هر نوبت ۱ تا ۲۰ شناسه معتبر وارد کنید.")
+        return
+    with db() as c:
+        known_ids = {row[0] for row in c.execute(
+            f"SELECT user_id FROM users WHERE user_id IN ({','.join('?' for _ in recipient_ids)})",
+            recipient_ids
+        ).fetchall()}
+    unknown = [uid for uid in recipient_ids if uid not in known_ids]
+    sent, failed = [], []
+    for uid in recipient_ids:
+        if uid not in known_ids:
+            failed.append((uid, "در دیتابیس ثبت نشده"))
+            continue
+        try:
+            await bot.send_message(uid, message_text)
+            sent.append(uid)
+        except Exception as exc:
+            failed.append((uid, type(exc).__name__))
+        await asyncio.sleep(0.05)
+    report = [f"پیام خصوصی ارسال شد: {len(sent)} نفر"]
+    if sent:
+        report.append("موفق: " + ", ".join(map(str, sent)))
+    if failed:
+        report.append("ناموفق: " + "; ".join(f"{uid} ({reason})" for uid, reason in failed))
+    report.append("توجه: کاربر باید قبلاً ربات را شروع کرده باشد و ربات را مسدود نکرده باشد.")
+    await m.answer("\\n".join(report))
+
+
 @dp.message(Command("lottery_draw"))
 async def lottery_draw(m: Message):
     if not is_admin(m): return
@@ -1202,6 +1249,18 @@ async def lottery_draw(m: Message):
         log_balance(c, winner, lot[0], "lottery_prize", p[1])
         pool_change(c,-lot[0])
     await m.answer(f"برنده قرعه‌کشی: {winner}؛ جایزه {lot[0]} GRM به موجودی داخلی افزوده شد.")
+    try:
+        winner_lang = get_user_lang(winner)
+        winner_messages = {
+            "fa": f"🎉 تبریک! شما برنده قرعه‌کشی شماره {p[1]} شدید. جایزه {lot[0]} GRM به موجودی داخلی شما اضافه شد.",
+            "en": f"🎉 Congratulations! You won lottery #{p[1]}. {lot[0]} GRM has been added to your internal balance.",
+            "ru": f"🎉 Поздравляем! Вы выиграли в лотерее №{p[1]}. На ваш внутренний баланс начислено {lot[0]} GRM."
+        }
+        await bot.send_message(winner, winner_messages.get(winner_lang, winner_messages["en"]))
+        await m.answer("پیام خصوصی تبریک برای برنده ارسال شد.")
+    except Exception as exc:
+        await m.answer(f"ارسال پیام خصوصی به برنده موفق نشد: {type(exc).__name__}. کاربر می‌تواند با /start ربات را فعال کند.")
+
 
 async def main():
     if not TOKEN:
@@ -1242,6 +1301,7 @@ async def main():
         BotCommand(command="reject_trade", description="Reject a trade"),
         BotCommand(command="lottery_create", description="Create a lottery"),
         BotCommand(command="lottery_draw", description="Draw lottery winner"),
+        BotCommand(command="sendmsg", description="Send a private message to selected users"),
         BotCommand(command="report", description="View bot statistics report"),
         BotCommand(command="user_info", description="View a user's account details"),
         BotCommand(command="history", description="View a user balance history"),
