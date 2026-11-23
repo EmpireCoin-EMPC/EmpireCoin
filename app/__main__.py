@@ -113,14 +113,14 @@ async def activate(m: Message):
     user_upsert(m)
     parts = (m.text or "").split(maxsplit=1)
     if len(parts) != 2 or len(parts[1].strip()) < 8:
-        await m.answer("روش استفاده: /activate TX_HASH\nابتدا دقیقاً 0.5 TON به کیف پول شرکت بفرستید؛ سپس شناسه تراکنش را ثبت کنید. برداشت فقط 30 روز پس از تأیید تراکنش فعال می‌شود.")
+        await m.answer("روش استفاده: /activate TX_HASH\nابتدا دقیقاً 0.5 TON به کیف پول شرکت بفرستید:\\n{COMPANY_WALLET}\\nسپس /activate TX_HASH را اجرا کنید. برداشت فقط 30 روز پس از تأیید دستی تراکنش توسط مدیر فعال می‌شود.")
         return
     tx = parts[1].strip()
     with db() as c:
         c.execute("UPDATE users SET activation_tx=?,activation_at=NULL,withdraw_after=NULL WHERE user_id=?", (tx, m.from_user.id))
     if ADMIN_ID:
         await bot.send_message(ADMIN_ID, f"درخواست بررسی فعال‌سازی\nکاربر: {m.from_user.id}\nTX: {tx}\nمبلغ مورد انتظار: {ACTIVATION_FEE} TON\nکیف پول مقصد: {COMPANY_WALLET}\nپس از بررسی در TON explorer: /activation_ok {m.from_user.id}")
-    await m.answer("شناسه تراکنش ثبت شد و در انتظار بررسی مدیر است. زمان 30 روزه فقط پس از تأیید واقعی پرداخت شروع می‌شود.")
+    await m.answer("شناسه تراکنش ثبت شد و در انتظار بررسی مدیر است. مبلغ موردنیاز: 0.5 TON\\nکیف پول شرکت: {COMPANY_WALLET}\\nزمان 30 روزه فقط پس از بررسی و تأیید واقعی پرداخت توسط مدیر شروع می‌شود.")
 
 @dp.message(Command("setwallet"))
 async def setwallet(m: Message):
