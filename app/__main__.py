@@ -127,7 +127,9 @@ async def daily_checkin(user_id: int, lang: str) -> str:
             return activation_prompt(lang)
         if row[2] == today:
             return {"en":"Already checked in today.", "fa":"امروز قبلاً چک‌این کرده‌اید.", "ru":"Сегодня вы уже отметились."}[lang]
-        day = min(int(row[1] or 0) + 1, DAILY_CHECKIN_DAYS)
+        if int(row[1] or 0) >= DAILY_CHECKIN_DAYS:
+            return {"en":"You have completed all 30 check-ins. The withdrawal check-in requirement is satisfied.", "fa":"هر ۳۰ نوبت دیلی‌چک‌این را تکمیل کرده‌اید و شرط چک‌این برداشت انجام شده است.", "ru":"Все 30 отметок завершены. Условие для вывода выполнено."}[lang]
+        day = int(row[1] or 0) + 1
         reward = day * 50
         pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
         pool = int(pool_row[0]) if pool_row else 0
@@ -207,9 +209,9 @@ def language_keyboard():
     ])
 
 MENU_LABELS = {
-    "en": ["💰 My balance", "⛏ Hourly mining", "📋 Tasks", "🎟 Lottery", "👛 Set wallet", "💸 Withdraw", "🤝 Trade", "💳 Activate account", "🌐 Language"],
-    "fa": ["💰 موجودی من", "⛏ استخراج ساعتی", "📋 وظایف", "🎟 قرعه‌کشی", "👛 ثبت کیف پول", "💸 درخواست برداشت", "🤝 معامله", "💳 فعال‌سازی حساب", "🌐 تغییر زبان"],
-    "ru": ["💰 Мой баланс", "⛏ Почасовая добыча", "📋 Задания", "🎟 Лотерея", "👛 Мой кошелёк", "💸 Вывод", "🤝 Сделка", "💳 Активация", "🌐 Язык"],
+    "en": ["💰 My balance", "⛏ Hourly mining", "📋 Tasks", "🎟 Lottery", "👛 Set wallet", "💸 Withdraw", "🤝 Trade", "💳 Activate account", "🌐 Language", "📅 Daily check-in", "👥 Referrals"],
+    "fa": ["💰 موجودی من", "⛏ استخراج ساعتی", "📋 وظایف", "🎟 قرعه‌کشی", "👛 ثبت کیف پول", "💸 درخواست برداشت", "🤝 معامله", "💳 فعال‌سازی حساب", "🌐 تغییر زبان", "📅 دیلی‌چک‌این", "👥 دعوت دوستان"],
+    "ru": ["💰 Мой баланс", "⛏ Почасовая добыча", "📋 Задания", "🎟 Лотерея", "👛 Мой кошелёк", "💸 Вывод", "🤝 Сделка", "💳 Активация", "🌐 Язык", "📅 Ежедневный вход", "👥 Рефералы"],
 }
 
 def user_menu_keyboard(lang="en"):
@@ -219,6 +221,7 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text=a[2], callback_data="user:tasks"), InlineKeyboardButton(text=a[3], callback_data="user:lottery")],
         [InlineKeyboardButton(text=a[4], callback_data="user:wallet"), InlineKeyboardButton(text=a[5], callback_data="user:withdraw")],
         [InlineKeyboardButton(text=a[6], callback_data="user:trade"), InlineKeyboardButton(text=a[7], callback_data="user:activate")],
+        [InlineKeyboardButton(text=a[9], callback_data="user:checkin"), InlineKeyboardButton(text=a[10], callback_data="user:referral")],
         [InlineKeyboardButton(text=a[8], callback_data="user:language")],
     ])
 
@@ -339,6 +342,23 @@ async def user_menu_actions(q: CallbackQuery):
     if action == "language":
         prompts = {"en": "Choose your language:", "fa": "زبان خود را انتخاب کنید:", "ru": "Выберите язык:"}
         await q.message.answer(prompts[lang], reply_markup=language_keyboard())
+        await q.answer()
+        return
+    if action == "checkin":
+        await q.message.answer(await daily_checkin(uid, lang))
+        await q.answer()
+        return
+    if action == "referral":
+        me = await bot.get_me()
+        link = f"https://t.me/{me.username}?start=ref{uid}"
+        with db() as c:
+            count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
+        texts = {
+            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 500} GRM. 500 GRM is credited after the invited user pays 0.5 GRAM and admin confirms activation.",
+            "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 500} GRM. پس از پرداخت ۰٫۵ GRAM توسط دعوت‌شده و تأیید مدیر، ۵۰۰ GRM به شما داده می‌شود.",
+            "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 500} GRM. 500 GRM начисляются после оплаты 0.5 GRAM приглашённым и подтверждения администратором."
+        }
+        await q.message.answer(texts[lang])
         await q.answer()
         return
     if action == "balance":
@@ -837,9 +857,9 @@ async def activation_ok(m: Message):
     await m.answer(f"Activation for user {uid} approved. Withdrawal is available after {end.isoformat()}.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
-        "en": f"Your activation payment has been confirmed. Withdrawals will be available from {end.strftime('%Y-%m-%d %H:%M UTC')}.",
-        "fa": f"پرداخت فعال‌سازی شما تأیید شد. برداشت از تاریخ {end.strftime('%Y-%m-%d %H:%M UTC')} فعال می‌شود.",
-        "ru": f"Ваш платёж за активацию подтверждён. Вывод средств будет доступен с {end.strftime('%Y-%m-%d %H:%M UTC')}."
+        "en": "Your activation payment is confirmed. You may now mine and use the bot. Withdrawals require 30 successful daily check-ins and a minimum balance of 17,000 GRM.",
+        "fa": "پرداخت فعال‌سازی شما تأیید شد. اکنون می‌توانید ماین و از ربات استفاده کنید. برداشت به ۳۰ نوبت دیلی‌چک‌این موفق و حداقل موجودی ۱۷٬۰۰۰ GRM نیاز دارد.",
+        "ru": "Платёж за активацию подтверждён. Теперь доступен майнинг. Для вывода нужны 30 успешных ежедневных отметок и баланс не менее 17 000 GRM."
     }
     await bot.send_message(uid, notices[lang])
     if reward_referral:
