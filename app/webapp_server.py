@@ -54,6 +54,9 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     async def index(request):
         return web.FileResponse(WEB_DIR / "index.html")
 
+    async def health(request):
+        return web.json_response({"ok": True, "service": "grm-mini-app"})
+
     async def dashboard(request):
         tg = _telegram_user(request, app["bot_token"])
         uid = int(tg["id"])
@@ -108,6 +111,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         uid = int(tg["id"])
         today = datetime.now(timezone.utc).date().isoformat()
         with _db(app["db_path"]) as c:
+            c.execute("BEGIN IMMEDIATE")
             row = c.execute("SELECT activation_at,checkin_day,last_checkin_date FROM users WHERE user_id=?", (uid,)).fetchone()
             if not row or not row[0]:
                 raise web.HTTPForbidden(text="Activation is required")
@@ -134,6 +138,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         uid = int(tg["id"])
         now = datetime.now(timezone.utc)
         with _db(app["db_path"]) as c:
+            c.execute("BEGIN IMMEDIATE")
             row = c.execute("SELECT activation_at,last_mine FROM users WHERE user_id=?", (uid,)).fetchone()
             if not row or not row[0]:
                 raise web.HTTPForbidden(text="Activation is required")
@@ -163,6 +168,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         return web.json_response({"ok": True, "language": lang})
 
     app.router.add_get("/", index)
+    app.router.add_get("/healthz", health)
     app.router.add_get("/api/dashboard", dashboard)
     app.router.add_post("/api/checkin", checkin)
     app.router.add_post("/api/mine", mine)
