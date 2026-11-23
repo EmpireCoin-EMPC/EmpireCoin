@@ -108,8 +108,16 @@ def activation_prompt(lang: str) -> str:
     return texts.get(lang, texts["en"])
 
 def activation_keyboard(lang):
-    label = {"en":"💳 Activate account", "fa":"💳 فعال‌سازی حساب", "ru":"💳 Активировать аккаунт"}.get(lang, "💳 Activate account")
-    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=label, callback_data="user:activate")]])
+    labels = {
+        "en": ("💳 Activate account", "ℹ️ Project information"),
+        "fa": ("💳 فعال‌سازی حساب", "ℹ️ اطلاعات پروژه"),
+        "ru": ("💳 Активировать аккаунт", "ℹ️ О проекте")
+    }
+    activate_label, info_label = labels.get(lang, labels["en"])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=activate_label, callback_data="user:activate")],
+        [InlineKeyboardButton(text=info_label, callback_data="user:info")]
+    ])
 
 def referral_text(lang, link, count, total):
     texts = {
@@ -354,7 +362,7 @@ async def user_menu_actions(q: CallbackQuery):
         await q.message.answer(info_texts[lang])
         await q.answer()
         return
-    if action not in ("activate", "wallet", "referral") and not is_user_activated(uid):
+    if action not in ("activate", "wallet", "referral", "info") and not is_user_activated(uid):
         await q.message.answer(activation_prompt(lang), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
         await q.answer()
         return
