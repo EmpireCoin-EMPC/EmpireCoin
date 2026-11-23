@@ -30,7 +30,9 @@ def init_db():
         c.execute("""CREATE TABLE IF NOT EXISTS users(
             user_id INTEGER PRIMARY KEY, username TEXT, balance INTEGER DEFAULT 0,
             wallet TEXT, last_mine TEXT, activation_tx TEXT, activation_at TEXT,
-            withdraw_after TEXT, lang TEXT DEFAULT 'en')""")
+            withdraw_after TEXT, lang TEXT DEFAULT 'en',
+            referred_by INTEGER, referral_rewarded INTEGER DEFAULT 0,
+            checkin_day INTEGER DEFAULT 0, last_checkin_date TEXT)""")
         c.execute("""CREATE TABLE IF NOT EXISTS balance_history(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -79,10 +81,91 @@ def init_db():
         cols = [row[1] for row in c.execute("PRAGMA table_info(users)").fetchall()]
         if "lang" not in cols:
             c.execute("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'")
+        for col, definition in (("referred_by", "INTEGER"), ("referral_rewarded", "INTEGER DEFAULT 0"),
+                                ("checkin_day", "INTEGER DEFAULT 0"), ("last_checkin_date", "TEXT")):
+            if col not in cols:
+                c.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
         c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('pool',?)", (str(POOL_START),))
 
 def is_admin(m: Message):
     return m.from_user and m.from_user.id == ADMIN_ID
+
+
+MIN_WITHDRAWAL = 17000
+DAILY_CHECKIN_DAYS = 30
+
+def is_user_activated(user_id: int) -> bool:
+    with db() as c:
+        row = c.execute("SELECT activation_at FROM users WHERE user_id=?", (user_id,)).fetchone()
+    return bool(row and row[0])
+
+def activation_prompt(lang: str) -> str:
+    texts = {
+        "en": f"Activation is required before mining. First set your wallet with /setwallet WALLET_ADDRESS, then pay {ACTIVATION_FEE} GRAM to the company wallet and submit /activate TX_HASH. Admin confirmation is required. Company wallet: {COMPANY_WALLET}",
+        "fa": f"پیش از ماین باید حساب فعال شود. ابتدا با /setwallet آدرس والت را ثبت کنید، سپس {ACTIVATION_FEE} GRAM به والت شرکت بفرستید و /activate TX_HASH را ارسال کنید. تأیید مدیر الزامی است. والت شرکت: {COMPANY_WALLET}",
+        "ru": f"Перед майнингом активируйте аккаунт: укажите кошелёк через /setwallet, отправьте {ACTIVATION_FEE} GRAM на кошелёк компании и пришлите /activate TX_HASH. Требуется подтверждение администратора. Кошелёк: {COMPANY_WALLET}"
+    }
+    return texts.get(lang, texts["en"])
+
+def activation_keyboard(lang):
+    label = {"en":"💳 Activate account", "fa":"💳 فعال‌سازی حساب", "ru":"💳 Активировать аккаунт"}.get(lang, "💳 Activate account")
+    return InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text=label, callback_data="user:activate")]])
+
+def referral_text(lang, link, count, total):
+    texts = {
+        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} GRM. You receive 500 GRM only after the invited user pays 0.5 GRAM and admin confirms activation.",
+        "fa": f"لینک دعوت: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {total} GRM. پس از پرداخت ۰٫۵ GRAM توسط دعوت‌شده و تأیید مدیر، ۵۰۰ GRM دریافت می‌کنید.",
+        "ru": f"Реферальная ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {total} GRM. Награда 500 GRM начисляется после оплаты приглашённым 0.5 GRAM и подтверждения администратором."
+    }
+    return texts.get(lang, texts["en"])
+
+async def daily_checkin(user_id: int, lang: str) -> str:
+    today = now().date().isoformat()
+    with db() as c:
+        row = c.execute("SELECT activation_at,checkin_day,last_checkin_date FROM users WHERE user_id=?", (user_id,)).fetchone()
+        if not row or not row[0]:
+            return activation_prompt(lang)
+        if row[2] == today:
+            return {"en":"Already checked in today.", "fa":"امروز قبلاً چک‌این کرده‌اید.", "ru":"Сегодня вы уже отметились."}[lang]
+        day = min(int(row[1] or 0) + 1, DAILY_CHECKIN_DAYS)
+        reward = day * 50
+        pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+        pool = int(pool_row[0]) if pool_row else 0
+        reward = min(reward, pool)
+        if reward <= 0:
+            return {"en":"Mining pool is empty.", "fa":"استخر پاداش خالی است.", "ru":"Пул наград пуст."}[lang]
+        c.execute("UPDATE users SET checkin_day=?,last_checkin_date=?,balance=balance+? WHERE user_id=?", (day,today,reward,user_id))
+        log_balance(c,user_id,reward,"daily_checkin",day)
+        pool_change(c,-reward)
+    messages = {
+        "en": f"Check-in {day}/30 complete. Reward: {reward} GRM. Missed days pause progress; next check-in continues from the next number.",
+        "fa": f"چک‌این روز {day} از ۳۰ تکمیل شد. پاداش: {reward} GRM. روزهای جاافتاده شمارش را متوقف می‌کنند؛ دفعه بعد از شماره بعدی ادامه می‌دهید.",
+        "ru": f"Отметка {day}/30 выполнена. Награда: {reward} GRM. Пропущенные дни приостанавливают прогресс; следующая отметка продолжит со следующего номера."
+    }
+    return messages[lang]
+
+@dp.message(Command("checkin"))
+async def checkin_command(m: Message):
+    await m.answer(await daily_checkin(m.from_user.id, get_user_lang(m.from_user.id)))
+
+@dp.message(Command("referral"))
+async def referral_command(m: Message):
+    user_upsert(m)
+    lang = get_user_lang(m.from_user.id)
+    me = await bot.get_me()
+    link = f"https://t.me/{me.username}?start=ref{m.from_user.id}"
+    with db() as c:
+        count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (m.from_user.id,)).fetchone()[0]
+    await m.answer(referral_text(lang, link, count, count * 500))
+
+@dp.message(Command("referrals"))
+async def referrals_admin(m: Message):
+    if not is_admin(m):
+        return
+    with db() as c:
+        rows = c.execute("SELECT user_id,referred_by,referral_rewarded FROM users WHERE referred_by IS NOT NULL ORDER BY user_id DESC LIMIT 100").fetchall()
+    await m.answer("\n".join([f"user={u} inviter={inv} rewarded={bool(done)}" for u,inv,done in rows]) or "No referrals found.")
+
 
 def user_upsert(m: Message):
     with db() as c:
@@ -418,6 +501,13 @@ async def admin_trade_action(q: CallbackQuery):
 @dp.message(CommandStart())
 async def start(m: Message):
     user_upsert(m)
+    payload = (m.text or "").split(maxsplit=1)
+    if len(payload) == 2 and payload[1].startswith("ref") and payload[1][3:].isdigit():
+        inviter = int(payload[1][3:])
+        if inviter != m.from_user.id:
+            with db() as c:
+                c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL AND activation_at IS NULL",
+                          (inviter, m.from_user.id))
     lang = get_user_lang(m.from_user.id)
     welcome = {
         "en": "Welcome to GRM Mining!\nChoose an option below.",
@@ -426,7 +516,7 @@ async def start(m: Message):
     }
     await m.answer(
         welcome[lang] + ("\n/admin — admin panel" if is_admin(m) else ""),
-        reply_markup=admin_panel_keyboard(lang) if is_admin(m) else user_menu_keyboard(lang)
+        reply_markup=admin_panel_keyboard(lang) if is_admin(m) else (user_menu_keyboard(lang) if is_user_activated(m.from_user.id) else activation_keyboard(lang))
     )
 
 @dp.message(Command("balance"))
@@ -444,6 +534,9 @@ async def balance(m: Message):
 async def mine(m: Message):
     user_upsert(m)
     lang = get_user_lang(m.from_user.id)
+    if not is_user_activated(m.from_user.id):
+        await m.answer(activation_prompt(lang))
+        return
     t = now()
     with db() as c:
         row = c.execute("SELECT last_mine FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
@@ -469,6 +562,14 @@ async def activate(m: Message):
     parts = (m.text or "").split(maxsplit=1)
     if len(parts) != 2 or len(parts[1].strip()) < 8:
         await m.answer(ut(lang, "activate", fee=ACTIVATION_FEE, wallet=COMPANY_WALLET), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
+        return
+    with db() as c:
+        wallet_row = c.execute("SELECT wallet,activation_at FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
+    if not wallet_row or not wallet_row[0]:
+        await m.answer({"en":"Set your wallet first: /setwallet WALLET_ADDRESS","fa":"ابتدا والت خود را ثبت کنید: /setwallet آدرس_والت","ru":"Сначала укажите кошелёк: /setwallet АДРЕС"}[lang])
+        return
+    if wallet_row[1]:
+        await m.answer({"en":"Account already activated.","fa":"حساب شما قبلاً فعال شده است.","ru":"Аккаунт уже активирован."}[lang])
         return
     tx = parts[1].strip()
     with db() as c:
@@ -497,13 +598,19 @@ async def withdraw(m: Message):
         await m.answer(uct(lang, "withdraw_usage"))
         return
     amount = int(p[1])
+    if amount < MIN_WITHDRAWAL:
+        await m.answer({"en":"Minimum withdrawal is 17,000 GRM.","fa":"حداقل برداشت ۱۷٬۰۰۰ GRM است.","ru":"Минимальный вывод — 17 000 GRM."}[lang])
+        return
+    if not is_user_activated(m.from_user.id):
+        await m.answer(activation_prompt(lang))
+        return
     with db() as c:
-        u = c.execute("SELECT balance,wallet,withdraw_after FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
+        u = c.execute("SELECT balance,wallet,checkin_day FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
         if not u or not u[1]:
             await m.answer(uct(lang, "wallet_required"))
             return
-        if not u[2] or now() < datetime.fromisoformat(u[2]):
-            await m.answer(uct(lang, "withdraw_locked", fee=ACTIVATION_FEE, days=WAIT_DAYS))
+        if int(u[2] or 0) < 30:
+            await m.answer({"en":"Complete 30 successful daily check-ins before withdrawing.","fa":"برای برداشت باید ۳۰ نوبت دیلی‌چک‌این موفق تکمیل کنید.","ru":"Для вывода необходимо завершить 30 успешных отметок."}[lang])
             return
         if amount > u[0]:
             await m.answer(uct(lang, "insufficient"))
@@ -715,10 +822,18 @@ async def activation_ok(m: Message):
         return
     uid=int(p[1]); start=now(); end=start+timedelta(days=WAIT_DAYS)
     with db() as c:
-        row=c.execute("SELECT activation_tx,lang FROM users WHERE user_id=?",(uid,)).fetchone()
+        row=c.execute("SELECT activation_tx,lang,referred_by,referral_rewarded,activation_at FROM users WHERE user_id=?",(uid,)).fetchone()
         if not row or not row[0]:
             await m.answer("No activation transaction found for this user."); return
-        c.execute("UPDATE users SET activation_at=?,withdraw_after=? WHERE user_id=?",(start.isoformat(),end.isoformat(),uid))
+        if row[4]:
+            await m.answer("This user is already activated."); return
+        c.execute("UPDATE users SET activation_at=?,withdraw_after=NULL WHERE user_id=?",(start.isoformat(),uid))
+        inviter = row[2]
+        reward_referral = bool(inviter and not row[3])
+        if reward_referral:
+            c.execute("UPDATE users SET balance=balance+500 WHERE user_id=?", (inviter,))
+            log_balance(c, inviter, 500, "referral_reward", uid)
+            c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?", (uid,))
     await m.answer(f"Activation for user {uid} approved. Withdrawal is available after {end.isoformat()}.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
@@ -727,6 +842,15 @@ async def activation_ok(m: Message):
         "ru": f"Ваш платёж за активацию подтверждён. Вывод средств будет доступен с {end.strftime('%Y-%m-%d %H:%M UTC')}."
     }
     await bot.send_message(uid, notices[lang])
+    if reward_referral:
+        try:
+            inviter_lang = get_user_lang(inviter)
+            referral_notices = {"en": f"Your referral {uid} activated. 500 GRM was credited.",
+                                "fa": f"دعوت‌شده شما ({uid}) فعال شد و ۵۰۰ GRM پاداش گرفتید.",
+                                "ru": f"Ваш приглашённый пользователь {uid} активирован. Начислено 500 GRM."}
+            await bot.send_message(inviter, referral_notices[inviter_lang])
+        except Exception:
+            pass
 
 @dp.message(Command("approve"))
 async def approve(m: Message):
@@ -1034,6 +1158,8 @@ async def main():
         BotCommand(command="claim", description="Submit task evidence for review"),
         BotCommand(command="trade", description="Request a trade"),
         BotCommand(command="lottery_join", description="Join the lottery"),
+        BotCommand(command="checkin", description="Daily check-in"),
+        BotCommand(command="referral", description="Get your referral link"),
     ])
 
     # Additional commands visible only in the administrator's command menu
@@ -1056,6 +1182,7 @@ async def main():
         BotCommand(command="report", description="View bot statistics report"),
         BotCommand(command="user_info", description="View a user's account details"),
         BotCommand(command="history", description="View a user balance history"),
+        BotCommand(command="referrals", description="View referral records"),
         BotCommand(command="task_pending", description="Review task evidence"),
         BotCommand(command="task_approve", description="Approve task evidence"),
         BotCommand(command="task_reject", description="Reject task evidence"),
