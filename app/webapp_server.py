@@ -70,7 +70,10 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             if not row:
                 c.execute("INSERT INTO users(user_id,username) VALUES(?,?)", (uid, tg.get("username", "")))
                 row = (tg.get("username", ""), 0, None, None, 0, None, None, "en", None)
-            pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+            referral_total = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=?", (uid,)).fetchone()[0]
+        referral_activated = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
+        referral_pending = referral_total - referral_activated
+        pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
             tasks = c.execute(
                 "SELECT id,title,title_en,title_fa,title_ru,reward,desc_en,desc_fa,desc_ru "
                 "FROM tasks WHERE active=1 ORDER BY id DESC LIMIT 30"
@@ -102,7 +105,13 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             "mine_ready": mine_ready, "mine_seconds_left": max(0, int(3600 - (now-last_mine).total_seconds())) if last_mine else 0,
             "hourly_reward": app["hourly_reward"], "minimum_withdrawal": 17000,
             "withdrawal_fee_percent": app["fee_percent"], "activation_fee": app["activation_fee"],
-            "company_wallet": app["company_wallet"], "language": lang, "tasks": task_items
+            "company_wallet": app["company_wallet"], "language": lang, "tasks": task_items,
+            "referral": {
+                "link": f"https://t.me/GRM_Mining_Reward_Bot?start=ref{uid}",
+                "total": referral_total, "activated": referral_activated,
+                "pending": referral_pending, "earned": referral_activated * 500,
+                "reward_per_activation": 500
+            }
         })
 
     def _user(request):
