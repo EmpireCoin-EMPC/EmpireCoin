@@ -42,7 +42,8 @@ function render(){if(!data)return;const w=words[lang];document.documentElement.l
 async function refresh(){try{data=await api("/api/dashboard");lang=data.language||lang;$("language").value=lang;render()}catch(e){$("activation").hidden=false;$("activation").textContent=e.message}}
 $("checkinBtn").onclick=async()=>{try{const r=await api("/api/checkin","POST",{});tg?.HapticFeedback?.notificationOccurred("success");await refresh();alert(t("ok")+": "+r.reward+" GRM")}catch(e){alert(e.message);await refresh()}};
 $("mineBtn").onclick=async()=>{try{const r=await api("/api/mine","POST",{});tg?.HapticFeedback?.notificationOccurred("success");await refresh();alert(t("ok")+": "+r.reward+" GRM")}catch(e){alert(e.message);await refresh()}};
-$("copyCompany").onclick=async()=>{try{await navigator.clipboard.writeText(data.company_wallet);alert(t("ok"))}catch(e){alert(data.company_wallet)}};\n$("language").onchange=async e=>{lang=e.target.value;try{await api("/api/language","POST",{language:lang});await refresh()}catch(err){alert(err.message)}};
+$("copyCompany").onclick=async()=>{try{await navigator.clipboard.writeText(data.company_wallet);alert(t("ok"))}catch(e){alert(data.company_wallet)}};
+$("language").onchange=async e=>{lang=e.target.value;try{await api("/api/language","POST",{language:lang});await refresh()}catch(err){alert(err.message)}};
 $("foot").textContent="Payments are manually verified by the administrator. Never share your seed phrase or private key.";
 refresh();
 </script></body></html>
