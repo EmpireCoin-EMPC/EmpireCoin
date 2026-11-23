@@ -164,7 +164,10 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         uid = int(tg["id"])
         try:
             body = await request.json()
-            amount = int(body.get("amount", 0))
+            raw_amount = body.get("amount", 0)
+            if type(raw_amount) is not int:
+                raise ValueError("amount must be an integer")
+            amount = raw_amount
         except (ValueError, TypeError, AttributeError):
             raise web.HTTPBadRequest(text="Enter a valid whole-number amount")
         if amount < 17000:
