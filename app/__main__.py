@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -777,18 +777,38 @@ async def main():
     if not ADMIN_ID:
         raise RuntimeError("ADMIN_ID را در فایل .env تنظیم کنید.")
     init_db()
+    # Commands visible to ordinary users
     await bot.set_my_commands([
-        BotCommand(command="start", description="شروع ربات"),
-        BotCommand(command="balance", description="مشاهده موجودی"),
-        BotCommand(command="mine", description="استخراج ساعتی GRM"),
-        BotCommand(command="activate", description="ثبت تراکنش فعال‌سازی"),
-        BotCommand(command="setwallet", description="ثبت آدرس کیف پول"),
-        BotCommand(command="withdraw", description="درخواست برداشت"),
-        BotCommand(command="tasks", description="مشاهده وظایف"),
-        BotCommand(command="claim", description="دریافت پاداش وظیفه"),
-        BotCommand(command="trade", description="درخواست معامله"),
-        BotCommand(command="lottery_join", description="شرکت در قرعه‌کشی"),
+        BotCommand(command="start", description="Start the bot"),
+        BotCommand(command="balance", description="View your balance"),
+        BotCommand(command="mine", description="Hourly GRM mining"),
+        BotCommand(command="activate", description="Submit activation transaction"),
+        BotCommand(command="setwallet", description="Set your wallet address"),
+        BotCommand(command="withdraw", description="Request a withdrawal"),
+        BotCommand(command="tasks", description="View available tasks"),
+        BotCommand(command="claim", description="Claim a task reward"),
+        BotCommand(command="trade", description="Request a trade"),
+        BotCommand(command="lottery_join", description="Join the lottery"),
     ])
+
+    # Additional commands visible only in the administrator's command menu
+    await bot.set_my_commands([
+        BotCommand(command="pending", description="List pending withdrawals"),
+        BotCommand(command="activation_ok", description="Confirm activation payment"),
+        BotCommand(command="approve", description="Approve withdrawal"),
+        BotCommand(command="reject", description="Reject withdrawal"),
+        BotCommand(command="paid", description="Mark withdrawal as paid"),
+        BotCommand(command="addtask", description="Add a multilingual task"),
+        BotCommand(command="tasks_admin", description="List and manage tasks"),
+        BotCommand(command="deltask", description="Deactivate a task"),
+        BotCommand(command="restoretask", description="Restore a task"),
+        BotCommand(command="edittask", description="Edit a task"),
+        BotCommand(command="pool", description="View or set mining pool"),
+        BotCommand(command="approve_trade", description="Approve a trade"),
+        BotCommand(command="reject_trade", description="Reject a trade"),
+        BotCommand(command="lottery_create", description="Create a lottery"),
+        BotCommand(command="lottery_draw", description="Draw lottery winner"),
+    ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
