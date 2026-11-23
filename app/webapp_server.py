@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import os
+import re
 import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
@@ -219,6 +220,29 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             print(f"[webapp] Could not notify admin about withdrawal #{request_id}: {exc}")
         return web.json_response({"ok": True, "request_id": request_id, "amount": amount, "fee": fee, "net": net})
 
+    async def save_wallet(request):
+        tg = _user(request)
+        try:
+            body = await request.json()
+            wallet = body.get("wallet", "")
+            if not isinstance(wallet, str):
+                raise ValueError()
+            wallet = wallet.strip()
+        except (ValueError, TypeError, AttributeError):
+            raise web.HTTPBadRequest(text="Enter a valid TON wallet address")
+        raw_ton = re.fullmatch(r"0:[0-9a-fA-F]{64}", wallet)
+        friendly_ton = re.fullmatch(r"[A-Za-z0-9_-]{48}", wallet)
+        if not (raw_ton or friendly_ton):
+            raise web.HTTPBadRequest(text="Invalid TON wallet address format")
+        uid = int(tg["id"])
+        with _db(app["db_path"]) as c:
+            c.execute(
+                "INSERT INTO users(user_id,username,wallet) VALUES(?,?,?) "
+                "ON CONFLICT(user_id) DO UPDATE SET wallet=excluded.wallet",
+                (uid, tg.get("username", ""), wallet)
+            )
+        return web.json_response({"ok": True, "wallet": wallet})
+
     async def save_language(request):
         tg = _user(request)
         body = await request.json()
@@ -235,6 +259,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     app.router.add_post("/api/checkin", checkin)
     app.router.add_post("/api/mine", mine)
     app.router.add_post("/api/language", save_language)
+    app.router.add_post("/api/wallet", save_wallet)
     app.router.add_post("/api/withdraw", withdraw_request)
     return app
 
