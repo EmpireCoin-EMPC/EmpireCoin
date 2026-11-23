@@ -30,7 +30,7 @@ def init_db():
         c.execute("""CREATE TABLE IF NOT EXISTS users(
             user_id INTEGER PRIMARY KEY, username TEXT, balance INTEGER DEFAULT 0,
             wallet TEXT, last_mine TEXT, activation_tx TEXT, activation_at TEXT,
-            withdraw_after TEXT)""")
+            withdraw_after TEXT, lang TEXT DEFAULT 'en')""")
         c.execute("""CREATE TABLE IF NOT EXISTS settings(
             key TEXT PRIMARY KEY, value TEXT NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS withdrawals(
@@ -50,6 +50,9 @@ def init_db():
             winner_id INTEGER)""")
         c.execute("""CREATE TABLE IF NOT EXISTS lottery_entries(
             lottery_id INTEGER, user_id INTEGER, UNIQUE(lottery_id,user_id))""")
+        cols = [row[1] for row in c.execute("PRAGMA table_info(users)").fetchall()]
+        if "lang" not in cols:
+            c.execute("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'")
         c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('pool',?)", (str(POOL_START),))
 
 def is_admin(m: Message):
@@ -75,16 +78,32 @@ def copy_text_keyboard(value: str, label: str = "📋 کپی"):
         InlineKeyboardButton(text=label, copy_text=CopyTextButton(text=value))
     ]]) if value else None
 
-def user_menu_keyboard():
+def get_user_lang(user_id: int) -> str:
+    with db() as c:
+        row = c.execute("SELECT lang FROM users WHERE user_id=?", (user_id,)).fetchone()
+    return row[0] if row and row[0] in ("en", "fa", "ru") else "en"
+
+def language_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💰 موجودی من", callback_data="user:balance"),
-         InlineKeyboardButton(text="⛏ استخراج ساعتی", callback_data="user:mine")],
-        [InlineKeyboardButton(text="📋 وظایف", callback_data="user:tasks"),
-         InlineKeyboardButton(text="🎟 شرکت در قرعه‌کشی", callback_data="user:lottery")],
-        [InlineKeyboardButton(text="👛 ثبت کیف پول", callback_data="user:wallet"),
-         InlineKeyboardButton(text="💸 درخواست برداشت", callback_data="user:withdraw")],
-        [InlineKeyboardButton(text="🤝 درخواست معامله", callback_data="user:trade"),
-         InlineKeyboardButton(text="💳 فعال‌سازی حساب", callback_data="user:activate")],
+        [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en")],
+        [InlineKeyboardButton(text="🇮🇷 فارسی", callback_data="lang:fa")],
+        [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
+    ])
+
+MENU_LABELS = {
+    "en": ["💰 My balance", "⛏ Hourly mining", "📋 Tasks", "🎟 Lottery", "👛 Set wallet", "💸 Withdraw", "🤝 Trade", "💳 Activate account", "🌐 Language"],
+    "fa": ["💰 موجودی من", "⛏ استخراج ساعتی", "📋 وظایف", "🎟 قرعه‌کشی", "👛 ثبت کیف پول", "💸 درخواست برداشت", "🤝 معامله", "💳 فعال‌سازی حساب", "🌐 تغییر زبان"],
+    "ru": ["💰 Мой баланс", "⛏ Почасовая добыча", "📋 Задания", "🎟 Лотерея", "👛 Мой кошелёк", "💸 Вывод", "🤝 Сделка", "💳 Активация", "🌐 Язык"],
+}
+
+def user_menu_keyboard(lang="en"):
+    a = MENU_LABELS.get(lang, MENU_LABELS["en"])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=a[0], callback_data="user:balance"), InlineKeyboardButton(text=a[1], callback_data="user:mine")],
+        [InlineKeyboardButton(text=a[2], callback_data="user:tasks"), InlineKeyboardButton(text=a[3], callback_data="user:lottery")],
+        [InlineKeyboardButton(text=a[4], callback_data="user:wallet"), InlineKeyboardButton(text=a[5], callback_data="user:withdraw")],
+        [InlineKeyboardButton(text=a[6], callback_data="user:trade"), InlineKeyboardButton(text=a[7], callback_data="user:activate")],
+        [InlineKeyboardButton(text=a[8], callback_data="user:language")],
     ])
 
 def user_upsert_from_id(user_id: int, username: str):
