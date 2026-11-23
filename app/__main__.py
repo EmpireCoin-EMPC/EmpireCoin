@@ -129,51 +129,51 @@ async def choose_language(q: CallbackQuery):
 
 USER_TEXT = {
  "en": {
-  "balance":"Balance: {balance} GRM\\nMining pool remaining: {pool} GRM\\n{status}",
+  "balance":"Balance: {balance} GRM\nMining pool remaining: {pool} GRM\n{status}",
   "status":"Withdrawals available after: {date}", "inactive":"Activation payment is not confirmed yet.",
   "mine_wait":"One hour has not passed. Time remaining: {left}", "mine_empty":"The mining pool is empty.",
   "mine_ok":"{reward} GRM has been added to your balance.", "tasks_empty":"No tasks are available right now.",
-  "claim_hint":"\\nTo claim a task reward: /claim TASK_ID", "lottery_none":"There is no active lottery.",
+  "claim_hint":"\nTo claim a task reward: /claim TASK_ID", "lottery_none":"There is no active lottery.",
   "lottery_ok":"You have entered the lottery.", "lottery_dup":"You have already entered this lottery.",
-  "wallet":"To save your wallet, send:\\n/setwallet WALLET_ADDRESS",
-  "withdraw":"To request a withdrawal, send:\\n/withdraw AMOUNT\\nWithdrawals are available 30 days after activation approval.",
-  "trade":"To request a trade, send:\\n/trade TRADE_DETAILS",
-  "activate":"Activation fee: {fee} GRAM\\nCompany wallet:\\n{wallet}\\nAfter payment, submit the transaction hash using /activate TX_HASH",
+  "wallet":"To save your wallet, send:\n/setwallet WALLET_ADDRESS",
+  "withdraw":"To request a withdrawal, send:\n/withdraw AMOUNT\nWithdrawals are available 30 days after activation approval.",
+  "trade":"To request a trade, send:\n/trade TRADE_DETAILS",
+  "activate":"Activation fee: {fee} GRAM\nCompany wallet:\n{wallet}\nAfter payment, submit the transaction hash using /activate TX_HASH",
   "invalid":"Unknown option.", "copy_company":"📋 Copy company wallet", "copy_wallet":"📋 Copy my wallet"
  },
  "fa": {
-  "balance":"موجودی: {balance} GRM\\nباقی‌مانده استخر: {pool} GRM\\n{status}",
+  "balance":"موجودی: {balance} GRM\nباقی‌مانده استخر: {pool} GRM\n{status}",
   "status":"زمان مجاز برداشت: {date}", "inactive":"پرداخت فعال‌سازی هنوز تأیید نشده است.",
   "mine_wait":"هنوز یک ساعت کامل نشده است. زمان باقی‌مانده: {left}", "mine_empty":"استخر استخراج خالی است.",
   "mine_ok":"{reward} GRM به موجودی شما اضافه شد.", "tasks_empty":"فعلاً وظیفه‌ای ثبت نشده است.",
-  "claim_hint":"\\nبرای دریافت پاداش: /claim TASK_ID", "lottery_none":"قرعه‌کشی فعالی وجود ندارد.",
+  "claim_hint":"\nبرای دریافت پاداش: /claim TASK_ID", "lottery_none":"قرعه‌کشی فعالی وجود ندارد.",
   "lottery_ok":"در قرعه‌کشی ثبت شدید.", "lottery_dup":"قبلاً در این قرعه‌کشی ثبت شده‌اید.",
-  "wallet":"برای ثبت کیف پول بفرستید:\\n/setwallet WALLET_ADDRESS",
-  "withdraw":"برای درخواست برداشت بفرستید:\\n/withdraw AMOUNT\\nبرداشت ۳۰ روز پس از تأیید فعال‌سازی ممکن است.",
-  "trade":"برای درخواست معامله بفرستید:\\n/trade TRADE_DETAILS",
-  "activate":"مبلغ فعال‌سازی: {fee} GRAM\\nکیف پول شرکت:\\n{wallet}\\nپس از پرداخت، شناسه تراکنش را با دستور /activate TX_HASH بفرستید.",
+  "wallet":"برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS",
+  "withdraw":"برای درخواست برداشت بفرستید:\n/withdraw AMOUNT\nبرداشت ۳۰ روز پس از تأیید فعال‌سازی ممکن است.",
+  "trade":"برای درخواست معامله بفرستید:\n/trade TRADE_DETAILS",
+  "activate":"مبلغ فعال‌سازی: {fee} GRAM\nکیف پول شرکت:\n{wallet}\nپس از پرداخت، شناسه تراکنش را با دستور /activate TX_HASH بفرستید.",
   "invalid":"گزینه نامعتبر است.", "copy_company":"📋 کپی آدرس کیف پول شرکت", "copy_wallet":"📋 کپی آدرس کیف پول من"
  },
  "ru": {
-  "balance":"Баланс: {balance} GRM\\nОстаток пула: {pool} GRM\\n{status}",
+  "balance":"Баланс: {balance} GRM\nОстаток пула: {pool} GRM\n{status}",
   "status":"Вывод доступен после: {date}", "inactive":"Платёж активации ещё не подтверждён.",
   "mine_wait":"Один час ещё не прошёл. Осталось: {left}", "mine_empty":"В пуле больше нет токенов.",
   "mine_ok":"На ваш баланс добавлено {reward} GRM.", "tasks_empty":"Сейчас заданий нет.",
-  "claim_hint":"\\nЧтобы получить награду: /claim TASK_ID", "lottery_none":"Нет активной лотереи.",
+  "claim_hint":"\nЧтобы получить награду: /claim TASK_ID", "lottery_none":"Нет активной лотереи.",
   "lottery_ok":"Вы зарегистрированы в лотерее.", "lottery_dup":"Вы уже участвуете в этой лотерее.",
-  "wallet":"Чтобы сохранить кошелёк, отправьте:\\n/setwallet WALLET_ADDRESS",
-  "withdraw":"Чтобы запросить вывод, отправьте:\\n/withdraw AMOUNT\\nВывод доступен через 30 дней после подтверждения активации.",
-  "trade":"Чтобы запросить сделку, отправьте:\\n/trade TRADE_DETAILS",
-  "activate":"Плата за активацию: {fee} GRAM\\nКошелёк компании:\\n{wallet}\\nПосле оплаты отправьте хеш транзакции командой /activate TX_HASH",
+  "wallet":"Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS",
+  "withdraw":"Чтобы запросить вывод, отправьте:\n/withdraw AMOUNT\nВывод доступен через 30 дней после подтверждения активации.",
+  "trade":"Чтобы запросить сделку, отправьте:\n/trade TRADE_DETAILS",
+  "activate":"Плата за активацию: {fee} GRAM\nКошелёк компании:\n{wallet}\nПосле оплаты отправьте хеш транзакции командой /activate TX_HASH",
   "invalid":"Неизвестная команда.", "copy_company":"📋 Копировать кошелёк компании", "copy_wallet":"📋 Копировать мой кошелёк"
  }
 }
 
 USER_COMMAND_TEXT = {
-  "balance": ("Balance: {balance} GRM\\\\nMining pool remaining: {pool} GRM\\\\n{status}", "موجودی: {balance} GRM\\\\nباقی‌مانده استخر: {pool} GRM\\\\n{status}", "Баланс: {balance} GRM\\\\nОстаток пула: {pool} GRM\\\\n{status}"),
-  "activation_pending": ("Activation request submitted and is awaiting admin review. Required payment: {fee} GRAM\\\\nCompany wallet: {wallet}\\\\nThe 30-day period starts only after the admin verifies the payment.", "درخواست فعال‌سازی ثبت شد و منتظر بررسی مدیر است. مبلغ لازم: {fee} GRAM\\\\nکیف پول شرکت: {wallet}\\\\nمهلت ۳۰ روزه فقط پس از تأیید واقعی پرداخت توسط مدیر آغاز می‌شود.", "Заявка на активацию отправлена и ожидает проверки администратора. Сумма: {fee} GRAM\\\\nКошелёк компании: {wallet}\\\\n30-дневный срок начнётся только после проверки платежа администратором."),
-  "wallet_saved": ("Wallet saved:\\\\n{wallet}\\\\nPlease verify the address carefully before requesting a withdrawal.", "آدرس کیف پول ذخیره شد:\\\\n{wallet}\\\\nپیش از درخواست برداشت، آدرس را با دقت بررسی کنید.", "Кошелёк сохранён:\\\\n{wallet}\\\\nПеред запросом вывода внимательно проверьте адрес."),
-  "wallet": ("To save your wallet, send:\\n/setwallet WALLET_ADDRESS", "برای ثبت کیف پول بفرستید:\\n/setwallet WALLET_ADDRESS", "Чтобы сохранить кошелёк, отправьте:\\n/setwallet WALLET_ADDRESS"),
+  "balance": ("Balance: {balance} GRM\\\nMining pool remaining: {pool} GRM\\\n{status}", "موجودی: {balance} GRM\\\nباقی‌مانده استخر: {pool} GRM\\\n{status}", "Баланс: {balance} GRM\\\nОстаток пула: {pool} GRM\\\n{status}"),
+  "activation_pending": ("Activation request submitted and is awaiting admin review. Required payment: {fee} GRAM\\\nCompany wallet: {wallet}\\\nThe 30-day period starts only after the admin verifies the payment.", "درخواست فعال‌سازی ثبت شد و منتظر بررسی مدیر است. مبلغ لازم: {fee} GRAM\\\nکیف پول شرکت: {wallet}\\\nمهلت ۳۰ روزه فقط پس از تأیید واقعی پرداخت توسط مدیر آغاز می‌شود.", "Заявка на активацию отправлена и ожидает проверки администратора. Сумма: {fee} GRAM\\\nКошелёк компании: {wallet}\\\n30-дневный срок начнётся только после проверки платежа администратором."),
+  "wallet_saved": ("Wallet saved:\\\n{wallet}\\\nPlease verify the address carefully before requesting a withdrawal.", "آدرس کیف پول ذخیره شد:\\\n{wallet}\\\nپیش از درخواست برداشت، آدرس را با دقت بررسی کنید.", "Кошелёк сохранён:\\\n{wallet}\\\nПеред запросом вывода внимательно проверьте адрес."),
+  "wallet": ("To save your wallet, send:\n/setwallet WALLET_ADDRESS", "برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS", "Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS"),
   "withdraw_usage": ("Usage: /withdraw AMOUNT_G​​RM", "روش استفاده: /withdraw مقدار_GRM", "Использование: /withdraw СУММА_GRM"),
   "wallet_required": ("Please set your TON wallet first using /setwallet WALLET_ADDRESS.", "ابتدا کیف پول TON خود را با دستور /setwallet آدرس ثبت کنید.", "Сначала укажите TON-кошелёк командой /setwallet АДРЕС."),
   "withdraw_locked": ("Withdrawals are not available yet. Pay {fee} GRAM and wait {days} days after admin approval.", "برداشت هنوز فعال نیست. مبلغ {fee} GRAM را پرداخت کنید و پس از تأیید مدیر {days} روز صبر کنید.", "Вывод пока недоступен. Оплатите {fee} GRAM и подождите {days} дней после подтверждения администратором."),
@@ -243,7 +243,7 @@ async def user_menu_actions(q: CallbackQuery):
     elif action == "tasks":
         with db() as c:
             rows = c.execute("SELECT id,title,reward FROM tasks WHERE active=1").fetchall()
-        text = "\\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or ut(lang, "tasks_empty")
+        text = "\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or ut(lang, "tasks_empty")
         if rows:
             text += ut(lang, "claim_hint")
     elif action == "lottery":
@@ -397,7 +397,6 @@ async def balance(m: Message):
     await m.answer(ut(lang, "balance", balance=row[0], pool=pool, status=status))
 
 @dp.message(Command("mine"))
-@dp.message(Command("mine"))
 async def mine(m: Message):
     user_upsert(m)
     lang = get_user_lang(m.from_user.id)
@@ -430,7 +429,7 @@ async def activate(m: Message):
     with db() as c:
         c.execute("UPDATE users SET activation_tx=?,activation_at=NULL,withdraw_after=NULL WHERE user_id=?", (tx, m.from_user.id))
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"Activation review request\\nUser: {m.from_user.id}\\nTX: {tx}\\nExpected: {ACTIVATION_FEE} GRAM\\nDestination: {COMPANY_WALLET}\\nAfter checking TON explorer: /activation_ok {m.from_user.id}")
+        await bot.send_message(ADMIN_ID, f"Activation review request\nUser: {m.from_user.id}\nTX: {tx}\nExpected: {ACTIVATION_FEE} GRAM\nDestination: {COMPANY_WALLET}\nAfter checking TON explorer: /activation_ok {m.from_user.id}")
     await m.answer(uct(lang, "activation_pending", fee=ACTIVATION_FEE, wallet=COMPANY_WALLET), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
 
 @dp.message(Command("setwallet"))
@@ -445,7 +444,6 @@ async def setwallet(m: Message):
         c.execute("UPDATE users SET wallet=? WHERE user_id=?", (p[1].strip(), m.from_user.id))
     await m.answer(uct(lang, "wallet_saved", wallet=p[1].strip()), reply_markup=copy_text_keyboard(p[1].strip(), ut(lang, "copy_wallet")))
 
-@dp.message(Command("withdraw"))
 @dp.message(Command("withdraw"))
 async def withdraw(m: Message):
     p = (m.text or "").split()
@@ -472,7 +470,7 @@ async def withdraw(m: Message):
         req_id = cur.lastrowid
     await m.answer(uct(lang, "withdraw_created", id=req_id, amount=amount, percent=FEE_PERCENT, fee=fee, net=net))
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\\nUser: {m.from_user.id}\\nGross: {amount}\\nNet: {net}\\nWallet: {u[1]}\\nReview: /pending")
+        await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\nUser: {m.from_user.id}\nGross: {amount}\nNet: {net}\nWallet: {u[1]}\nReview: /pending")
 
 @dp.message(Command("tasks"))
 @dp.message(Command("tasks"))
@@ -480,9 +478,8 @@ async def tasks(m: Message):
     lang = get_user_lang(m.from_user.id)
     with db() as c:
         rows = c.execute("SELECT id,title,reward FROM tasks WHERE active=1").fetchall()
-    await m.answer("\\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or uct(lang, "tasks_empty"))
+    await m.answer("\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or uct(lang, "tasks_empty"))
 
-@dp.message(Command("claim"))
 @dp.message(Command("claim"))
 async def claim(m: Message):
     p = (m.text or "").split()
@@ -519,10 +516,9 @@ async def trade(m: Message):
         cur=c.execute("INSERT INTO trades(user_id,details) VALUES(?,?)",(m.from_user.id,p[1]))
         tid=cur.lastrowid
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID,f"New trade #{tid} from user {m.from_user.id}: {p[1]}\\n/approve_trade {tid} or /reject_trade {tid}")
+        await bot.send_message(ADMIN_ID,f"New trade #{tid} from user {m.from_user.id}: {p[1]}\n/approve_trade {tid} or /reject_trade {tid}")
     await m.answer(uct(lang, "trade_sent"))
 
-@dp.message(Command("lottery_join"))
 @dp.message(Command("lottery_join"))
 async def lottery_join(m: Message):
     lang = get_user_lang(m.from_user.id)
