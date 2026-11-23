@@ -191,7 +191,9 @@ async def admin_panel_sections(q: CallbackQuery):
             rows = c.execute("SELECT id,user_id,amount,net,wallet FROM withdrawals WHERE status='pending' ORDER BY id").fetchall()
             text = "💸 درخواست‌های برداشت در انتظار:\n" + ("\n".join([f"#{i} | کاربر {u} | مبلغ {a} | خالص {n} GRM | {w}" for i,u,a,n,w in rows]) or "درخواستی در انتظار نیست.")
             buttons = [[InlineKeyboardButton(text=f"رد #{i} ↩️", callback_data=f"wd:reject:{i}"),
-                        InlineKeyboardButton(text=f"تأیید #{i} ✓", callback_data=f"wd:approve:{i}")] for i,_,_,_,_ in rows[:10]]
+                        InlineKeyboardButton(text=f"تأیید #{i} ✓", callback_data=f"wd:approve:{i}")]
+                       + ([InlineKeyboardButton(text=f"📋 کپی والت #{i}", copy_text=CopyTextButton(text=w))] if w else [])
+                       for i,_,_,_,w in rows[:10]]
             if buttons:
                 await q.message.answer("اقدام برای درخواست:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
         elif section == "trades":
