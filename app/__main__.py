@@ -5,8 +5,9 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message
+from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message, MenuButtonWebApp, WebAppInfo
 from dotenv import load_dotenv
+from app.webapp_server import start_webapp_server
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN", "")
@@ -17,6 +18,8 @@ HOURLY_REWARD = int(os.getenv("HOURLY_REWARD", "10"))
 POOL_START = int(os.getenv("MINING_POOL", "172000000"))
 FEE_PERCENT = int(os.getenv("WITHDRAWAL_FEE_PERCENT", "10"))
 ACTIVATION_FEE = os.getenv("ACTIVATION_FEE_GRAM", "0.5")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()
+WEBAPP_PORT = int(os.getenv("WEBAPP_PORT", os.getenv("PORT", "8080")))
 WAIT_DAYS = int(os.getenv("ACTIVATION_WAIT_DAYS", "30"))
 
 def now():
@@ -1240,7 +1243,26 @@ async def main():
         BotCommand(command="task_approve", description="Approve task evidence"),
         BotCommand(command="task_reject", description="Reject task evidence"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
-    await dp.start_polling(bot)
+    if WEBAPP_URL:
+        await bot.set_chat_menu_button(
+            menu_button=MenuButtonWebApp(text="Open GRM", web_app=WebAppInfo(url=WEBAPP_URL))
+        )
+        print(f"[webapp] Telegram Mini App menu button configured: {WEBAPP_URL}")
+    else:
+        print("[webapp] WEBAPP_URL is not set; set a public HTTPS URL to enable the Telegram Mini App button.")
+
+    await asyncio.gather(
+        dp.start_polling(bot),
+        start_webapp_server(
+            bot_token=TOKEN,
+            db_path=DB_PATH,
+            hourly_reward=HOURLY_REWARD,
+            fee_percent=FEE_PERCENT,
+            activation_fee=ACTIVATION_FEE,
+            company_wallet=COMPANY_WALLET,
+            port=WEBAPP_PORT,
+        ),
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
