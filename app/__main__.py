@@ -31,6 +31,13 @@ def init_db():
             user_id INTEGER PRIMARY KEY, username TEXT, balance INTEGER DEFAULT 0,
             wallet TEXT, last_mine TEXT, activation_tx TEXT, activation_at TEXT,
             withdraw_after TEXT, lang TEXT DEFAULT 'en')""")
+        c.execute("""CREATE TABLE IF NOT EXISTS balance_history(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            change_amount INTEGER NOT NULL,
+            reason TEXT NOT NULL,
+            reference TEXT,
+            created_at TEXT NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS settings(
             key TEXT PRIMARY KEY, value TEXT NOT NULL)""")
         c.execute("""CREATE TABLE IF NOT EXISTS withdrawals(
@@ -67,6 +74,13 @@ def user_upsert(m: Message):
     with db() as c:
         c.execute("INSERT INTO users(user_id,username) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
                   (m.from_user.id, m.from_user.username or ""))
+
+def log_balance(c, user_id, change_amount, reason, reference=None):
+    c.execute(
+        "INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+        (user_id, change_amount, reason, str(reference) if reference is not None else None, now().isoformat())
+    )
+
 
 def pool_change(c, delta):
     row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
@@ -250,6 +264,7 @@ async def user_menu_actions(q: CallbackQuery):
                     text = ut(lang, "mine_empty")
                 else:
                     c.execute("UPDATE users SET balance=balance+?,last_mine=? WHERE user_id=?", (reward, t.isoformat(), uid))
+                    log_balance(c, uid, reward, "hourly_mining")
                     pool_change(c, -reward)
                     text = ut(lang, "mine_ok", reward=reward)
     elif action == "tasks":
@@ -428,6 +443,7 @@ async def mine(m: Message):
             await m.answer(ut(lang, "mine_empty"))
             return
         c.execute("UPDATE users SET balance=balance+?,last_mine=? WHERE user_id=?", (reward, t.isoformat(), m.from_user.id))
+        log_balance(c, m.from_user.id, reward, "hourly_mining")
         pool_change(c, -reward)
     await m.answer(ut(lang, "mine_ok", reward=reward))
 
@@ -481,6 +497,7 @@ async def withdraw(m: Message):
         fee = amount * FEE_PERCENT // 100
         net = amount - fee
         c.execute("UPDATE users SET balance=balance-? WHERE user_id=?", (amount, m.from_user.id))
+        log_balance(c, m.from_user.id, -amount, "withdrawal_request")
         cur = c.execute("INSERT INTO withdrawals(user_id,amount,fee,net,wallet,created_at) VALUES(?,?,?,?,?,?)", (m.from_user.id, amount, fee, net, u[1], now().isoformat()))
         req_id = cur.lastrowid
     await m.answer(uct(lang, "withdraw_created", id=req_id, amount=amount, percent=FEE_PERCENT, fee=fee, net=net))
@@ -516,6 +533,7 @@ async def claim(m: Message):
         pool = int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
         reward = min(task[0], pool)
         c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (reward,m.from_user.id))
+        log_balance(c, m.from_user.id, reward, "task_reward", tid)
         pool_change(c,-reward)
     await m.answer(uct(lang, "task_paid", reward=reward))
 
@@ -745,6 +763,42 @@ async def report(m: Message):
     )
 
 
+@dp.message(Command("history"))
+async def history(m: Message):
+    if not is_admin(m):
+        return
+    parts = (m.text or "").split()
+    if len(parts) != 2 or not parts[1].isdigit():
+        await m.answer("Usage: /history USER_ID")
+        return
+    uid = int(parts[1])
+    with db() as c:
+        exists = c.execute("SELECT 1 FROM users WHERE user_id=?", (uid,)).fetchone()
+        rows = c.execute(
+            "SELECT change_amount,reason,reference,created_at FROM balance_history WHERE user_id=? ORDER BY id DESC LIMIT 20",
+            (uid,)
+        ).fetchall()
+    if not exists:
+        await m.answer("User not found.")
+        return
+    if not rows:
+        await m.answer(f"No balance changes recorded yet for user {uid}.")
+        return
+    reason_names = {
+        "hourly_mining": "Hourly mining",
+        "task_reward": "Task reward",
+        "withdrawal_request": "Withdrawal request",
+        "lottery_prize": "Lottery prize"
+    }
+    lines = [f"Balance history for user {uid} (latest 20):"]
+    for amount, reason, reference, created in rows:
+        sign = "+" if amount > 0 else ""
+        label = reason_names.get(reason, reason)
+        ref_text = f" | Ref: {reference}" if reference else ""
+        lines.append(f"{created} | {sign}{amount} GRM | {label}{ref_text}")
+    await m.answer("\n".join(lines))
+
+
 @dp.message(Command("user_info"))
 async def user_info(m: Message):
     if not is_admin(m):
@@ -826,6 +880,7 @@ async def lottery_draw(m: Message):
         winner=secrets.choice(entries)
         c.execute("UPDATE lotteries SET status='drawn',winner_id=? WHERE id=?",(winner,int(p[1])))
         c.execute("UPDATE users SET balance=balance+? WHERE user_id=?",(lot[0],winner))
+        log_balance(c, winner, lot[0], "lottery_prize", p[1])
         pool_change(c,-lot[0])
     await m.answer(f"برنده قرعه‌کشی: {winner}؛ جایزه {lot[0]} GRM به موجودی داخلی افزوده شد.")
 
@@ -868,6 +923,7 @@ async def main():
         BotCommand(command="lottery_draw", description="Draw lottery winner"),
         BotCommand(command="report", description="View bot statistics report"),
         BotCommand(command="user_info", description="View a user's account details"),
+        BotCommand(command="history", description="View a user balance history"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
     await dp.start_polling(bot)
 
