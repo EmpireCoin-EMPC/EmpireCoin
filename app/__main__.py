@@ -295,14 +295,15 @@ async def admin_trade_action(q: CallbackQuery):
 @dp.message(CommandStart())
 async def start(m: Message):
     user_upsert(m)
+    lang = get_user_lang(m.from_user.id)
+    welcome = {
+        "en": "Welcome to GRM Mining!\\nChoose an option below.",
+        "fa": "به ربات GRM Mining خوش آمدید!\\nیکی از گزینه‌های زیر را انتخاب کنید.",
+        "ru": "Добро пожаловать в GRM Mining!\\nВыберите действие ниже."
+    }
     await m.answer(
-        "سلام! به ربات GRM Mining خوش آمدید.\n"
-        "/balance موجودی\n/mine استخراج ساعتی\n"
-        "/activate TX_HASH ثبت تراکنش فعال‌سازی\n"
-        "/setwallet آدرس_کیف_پول\n/withdraw مقدار درخواست برداشت\n"
-        "/tasks مشاهده وظایف\n/claim شماره_وظیفه\n/trade توضیحات معامله\n/lottery_join ورود به قرعه‌کشی"
-        + ("\n/admin پنل مدیریت" if is_admin(m) else ""),
-        reply_markup=admin_panel_keyboard() if is_admin(m) else user_menu_keyboard()
+        welcome[lang] + ("\\n/admin — admin panel" if is_admin(m) else ""),
+        reply_markup=admin_panel_keyboard() if is_admin(m) else user_menu_keyboard(lang)
     )
 
 @dp.message(Command("balance"))
