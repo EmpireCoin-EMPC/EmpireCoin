@@ -46,7 +46,7 @@ def _telegram_user(request, bot_token):
 
 
 def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee, company_wallet, admin_id):
-    app = web.Application(client_max_size=2 * 1024 * 1024)
+    app = web.Application(client_max_size=6 * 1024 * 1024)
     app["bot_token"] = bot_token
     app["db_path"] = db_path
     app["hourly_reward"] = hourly_reward
