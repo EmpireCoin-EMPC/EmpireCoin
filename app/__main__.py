@@ -116,7 +116,7 @@ def localized_task_text(row, lang):
     title = row[3 + index] or row[1]
     description = row[6 + index] or ""
     result = f"#{row[0]} {title} — {row[2]} GRM"
-    return result + (f"\\n{description}" if description else "")
+    return result + (f"\n{description}" if description else "")
 
 def user_upsert_from_id(user_id: int, username: str):
     with db() as c:
@@ -255,7 +255,7 @@ async def user_menu_actions(q: CallbackQuery):
     elif action == "tasks":
         with db() as c:
             rows = c.execute("SELECT id,title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru FROM tasks WHERE active=1").fetchall()
-        text = "\\n\\n".join([localized_task_text(row, lang) for row in rows]) or ut(lang, "tasks_empty")
+        text = "\n\n".join([localized_task_text(row, lang) for row in rows]) or ut(lang, "tasks_empty")
         if rows:
             text += ut(lang, "claim_hint")
     elif action == "lottery":
@@ -285,9 +285,9 @@ async def user_menu_actions(q: CallbackQuery):
 
 ADMIN_LABELS={"en":["Users","Tasks","Lottery","Withdrawals","Trades","Mining pool","Choose a section:"],"fa":["کاربران","وظایف","قرعه‌کشی","برداشت‌ها","معاملات","استخر استخراج","یک بخش را انتخاب کنید:"],"ru":["Пользователи","Задания","Лотерея","Выводы","Сделки","Пул майнинга","Выберите раздел:"]}
 ADMIN_MESSAGES={
-"en":{"users":"Registered users: {total}\\nApproved activations: {active}","tasks":"Tasks (latest 20):\\n{items}\\n\\nAdd: /addtask EN title | FA title | RU title | EN description | FA description | RU description | reward","tasks_empty":"No tasks have been added yet.","lotteries":"Lotteries:\\n{items}\\n\\nCreate: /lottery_create 1000\\nDraw: /lottery_draw LOTTERY_ID","lotteries_empty":"No lotteries found.","withdrawals":"Pending withdrawals:\\n{items}","withdrawals_empty":"No pending requests.","trades":"Pending trades:\\n{items}","trades_empty":"No pending trades.","pool":"Mining pool: {pool} GRM\\nSet with: /pool AMOUNT","missing":"Section not found.","menu":"GRM Mining Admin Panel\\n{menu}","only":"Administrator only.","action_withdraw":"Withdrawal actions:","action_trade":"Trade actions:"},
-"fa":{"users":"کاربران ثبت‌شده: {total}\\nفعال‌سازی تأییدشده: {active}","tasks":"وظایف (۲۰ مورد آخر):\\n{items}\\n\\nافزودن: /addtask عنوان انگلیسی | عنوان فارسی | عنوان روسی | توضیح انگلیسی | توضیح فارسی | توضیح روسی | پاداش","tasks_empty":"هنوز وظیفه‌ای ثبت نشده است.","lotteries":"قرعه‌کشی‌ها:\\n{items}\\n\\nایجاد: /lottery_create 1000\\nانتخاب برنده: /lottery_draw شماره","lotteries_empty":"قرعه‌کشی‌ای ثبت نشده است.","withdrawals":"درخواست‌های برداشت در انتظار:\\n{items}","withdrawals_empty":"درخواستی در انتظار نیست.","trades":"معاملات در انتظار:\\n{items}","trades_empty":"معامله‌ای در انتظار نیست.","pool":"موجودی استخر: {pool} GRM\\nبرای تنظیم: /pool مقدار","missing":"بخش پیدا نشد.","menu":"پنل مدیریت GRM Mining\\n{menu}","only":"این بخش فقط برای مدیر است.","action_withdraw":"اقدام برای درخواست:","action_trade":"اقدام برای معامله:"},
-"ru":{"users":"Зарегистрированные пользователи: {total}\\nПодтверждённые активации: {active}","tasks":"Задания (последние 20):\\n{items}\\n\\nДобавить: /addtask название EN | название FA | название RU | описание EN | описание FA | описание RU | награда","tasks_empty":"Заданий пока нет.","lotteries":"Лотереи:\\n{items}\\n\\nСоздать: /lottery_create 1000\\nРозыгрыш: /lottery_draw ID","lotteries_empty":"Лотерей пока нет.","withdrawals":"Ожидающие выводы:\\n{items}","withdrawals_empty":"Нет ожидающих заявок.","trades":"Ожидающие сделки:\\n{items}","trades_empty":"Ожидающих сделок нет.","pool":"Остаток пула: {pool} GRM\\nИзменить: /pool СУММА","missing":"Раздел не найден.","menu":"Панель администратора GRM Mining\\n{menu}","only":"Только для администратора.","action_withdraw":"Действия по заявке:","action_trade":"Действия по сделке:"}}
+"en":{"users":"Registered users: {total}\nApproved activations: {active}","tasks":"Tasks (latest 20):\n{items}\n\nAdd: /addtask EN title | FA title | RU title | EN description | FA description | RU description | reward","tasks_empty":"No tasks have been added yet.","lotteries":"Lotteries:\n{items}\n\nCreate: /lottery_create 1000\nDraw: /lottery_draw LOTTERY_ID","lotteries_empty":"No lotteries found.","withdrawals":"Pending withdrawals:\n{items}","withdrawals_empty":"No pending requests.","trades":"Pending trades:\n{items}","trades_empty":"No pending trades.","pool":"Mining pool: {pool} GRM\nSet with: /pool AMOUNT","missing":"Section not found.","menu":"GRM Mining Admin Panel\n{menu}","only":"Administrator only.","action_withdraw":"Withdrawal actions:","action_trade":"Trade actions:"},
+"fa":{"users":"کاربران ثبت‌شده: {total}\nفعال‌سازی تأییدشده: {active}","tasks":"وظایف (۲۰ مورد آخر):\n{items}\n\nافزودن: /addtask عنوان انگلیسی | عنوان فارسی | عنوان روسی | توضیح انگلیسی | توضیح فارسی | توضیح روسی | پاداش","tasks_empty":"هنوز وظیفه‌ای ثبت نشده است.","lotteries":"قرعه‌کشی‌ها:\n{items}\n\nایجاد: /lottery_create 1000\nانتخاب برنده: /lottery_draw شماره","lotteries_empty":"قرعه‌کشی‌ای ثبت نشده است.","withdrawals":"درخواست‌های برداشت در انتظار:\n{items}","withdrawals_empty":"درخواستی در انتظار نیست.","trades":"معاملات در انتظار:\n{items}","trades_empty":"معامله‌ای در انتظار نیست.","pool":"موجودی استخر: {pool} GRM\nبرای تنظیم: /pool مقدار","missing":"بخش پیدا نشد.","menu":"پنل مدیریت GRM Mining\n{menu}","only":"این بخش فقط برای مدیر است.","action_withdraw":"اقدام برای درخواست:","action_trade":"اقدام برای معامله:"},
+"ru":{"users":"Зарегистрированные пользователи: {total}\nПодтверждённые активации: {active}","tasks":"Задания (последние 20):\n{items}\n\nДобавить: /addtask название EN | название FA | название RU | описание EN | описание FA | описание RU | награда","tasks_empty":"Заданий пока нет.","lotteries":"Лотереи:\n{items}\n\nСоздать: /lottery_create 1000\nРозыгрыш: /lottery_draw ID","lotteries_empty":"Лотерей пока нет.","withdrawals":"Ожидающие выводы:\n{items}","withdrawals_empty":"Нет ожидающих заявок.","trades":"Ожидающие сделки:\n{items}","trades_empty":"Ожидающих сделок нет.","pool":"Остаток пула: {pool} GRM\nИзменить: /pool СУММА","missing":"Раздел не найден.","menu":"Панель администратора GRM Mining\n{menu}","only":"Только для администратора.","action_withdraw":"Действия по заявке:","action_trade":"Действия по сделке:"}}
 def admin_msg(lang,key,**kwargs):
     return ADMIN_MESSAGES.get(lang,ADMIN_MESSAGES["en"])[key].format(**kwargs)
 def admin_panel_keyboard(lang="en"):
@@ -314,21 +314,21 @@ async def admin_panel_sections(q:CallbackQuery):
             text=admin_msg(lang,"users",total=total,active=active)
         elif section=="tasks":
             rows=c.execute("SELECT id,title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru,active FROM tasks ORDER BY id DESC LIMIT 20").fetchall()
-            items="\\n\\n".join([localized_task_text(row[:9],lang)+(" | Active" if row[9] else " | Inactive") if lang=="en" else localized_task_text(row[:9],lang)+(" | فعال" if row[9] else " | غیرفعال") if lang=="fa" else localized_task_text(row[:9],lang)+(" | Активно" if row[9] else " | Неактивно") for row in rows]) or ADMIN_MESSAGES[lang]["tasks_empty"]
+            items="\n\n".join([localized_task_text(row[:9],lang)+(" | Active" if row[9] else " | Inactive") if lang=="en" else localized_task_text(row[:9],lang)+(" | فعال" if row[9] else " | غیرفعال") if lang=="fa" else localized_task_text(row[:9],lang)+(" | Активно" if row[9] else " | Неактивно") for row in rows]) or ADMIN_MESSAGES[lang]["tasks_empty"]
             text=admin_msg(lang,"tasks",items=items)
         elif section=="lotteries":
             rows=c.execute("SELECT id,prize,status,winner_id FROM lotteries ORDER BY id DESC LIMIT 20").fetchall()
-            items="\\n".join([f"#{i} | {p} GRM | {st} | winner: {w or '-'}" for i,p,st,w in rows]) or ADMIN_MESSAGES[lang]["lotteries_empty"]
+            items="\n".join([f"#{i} | {p} GRM | {st} | winner: {w or '-'}" for i,p,st,w in rows]) or ADMIN_MESSAGES[lang]["lotteries_empty"]
             text=admin_msg(lang,"lotteries",items=items)
         elif section=="withdrawals":
             rows=c.execute("SELECT id,user_id,amount,net,wallet FROM withdrawals WHERE status='pending' ORDER BY id").fetchall()
-            items="\\n".join([f"#{i} | user {u} | gross {a} | net {n} GRM | {w}" for i,u,a,n,w in rows]) or ADMIN_MESSAGES[lang]["withdrawals_empty"]
+            items="\n".join([f"#{i} | user {u} | gross {a} | net {n} GRM | {w}" for i,u,a,n,w in rows]) or ADMIN_MESSAGES[lang]["withdrawals_empty"]
             text=admin_msg(lang,"withdrawals",items=items)
             buttons=[[InlineKeyboardButton(text=(f"Reject #{i}" if lang=="en" else f"رد #{i}" if lang=="fa" else f"Отклонить #{i}"),callback_data=f"wd:reject:{i}"),InlineKeyboardButton(text=(f"Approve #{i}" if lang=="en" else f"تأیید #{i}" if lang=="fa" else f"Одобрить #{i}"),callback_data=f"wd:approve:{i}")]+([InlineKeyboardButton(text=f"📋 {w}",copy_text=CopyTextButton(text=w))] if w else []) for i,_,_,_,w in rows[:10]]
             if buttons: await q.message.answer(admin_msg(lang,"action_withdraw"),reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
         elif section=="trades":
             rows=c.execute("SELECT id,user_id,details FROM trades WHERE status='pending' ORDER BY id").fetchall()
-            items="\\n".join([f"#{i} | user {u}: {d}" for i,u,d in rows]) or ADMIN_MESSAGES[lang]["trades_empty"]
+            items="\n".join([f"#{i} | user {u}: {d}" for i,u,d in rows]) or ADMIN_MESSAGES[lang]["trades_empty"]
             text=admin_msg(lang,"trades",items=items)
             buttons=[[InlineKeyboardButton(text=(f"Reject #{i}" if lang=="en" else f"رد #{i}" if lang=="fa" else f"Отклонить #{i}"),callback_data=f"tr:reject:{i}"),InlineKeyboardButton(text=(f"Approve #{i}" if lang=="en" else f"تأیید #{i}" if lang=="fa" else f"Одобрить #{i}"),callback_data=f"tr:approve:{i}")] for i,_,_ in rows[:10]]
             if buttons: await q.message.answer(admin_msg(lang,"action_trade"),reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -485,7 +485,7 @@ async def tasks(m: Message):
     lang = get_user_lang(m.from_user.id)
     with db() as c:
         rows = c.execute("SELECT id,title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru FROM tasks WHERE active=1").fetchall()
-    await m.answer("\\n\\n".join([localized_task_text(row, lang) for row in rows]) or uct(lang, "tasks_empty"))
+    await m.answer("\n\n".join([localized_task_text(row, lang) for row in rows]) or uct(lang, "tasks_empty"))
 
 @dp.message(Command("claim"))
 async def claim(m: Message):
