@@ -146,6 +146,27 @@ async def daily_checkin(user_id: int, lang: str) -> str:
     }
     return messages[lang]
 
+def user_upsert(m: Message):
+    with db() as c:
+        c.execute("INSERT INTO users(user_id,username) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
+                  (m.from_user.id, m.from_user.username or ""))
+
+def log_balance(c, user_id, change_amount, reason, reference=None):
+    c.execute(
+        "INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+        (user_id, change_amount, reason, str(reference) if reference is not None else None, now().isoformat())
+    )
+
+
+def pool_change(c, delta):
+    row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+    current = int(row[0]) if row else POOL_START
+    c.execute("INSERT OR REPLACE INTO settings(key,value) VALUES('pool',?)", (str(max(0, current + delta)),))
+
+bot = Bot(TOKEN)
+dp = Dispatcher()
+
+
 @dp.message(Command("checkin"))
 async def checkin_command(m: Message):
     await m.answer(await daily_checkin(m.from_user.id, get_user_lang(m.from_user.id)))
@@ -167,27 +188,6 @@ async def referrals_admin(m: Message):
     with db() as c:
         rows = c.execute("SELECT user_id,referred_by,referral_rewarded FROM users WHERE referred_by IS NOT NULL ORDER BY user_id DESC LIMIT 100").fetchall()
     await m.answer("\n".join([f"user={u} inviter={inv} rewarded={bool(done)}" for u,inv,done in rows]) or "No referrals found.")
-
-
-def user_upsert(m: Message):
-    with db() as c:
-        c.execute("INSERT INTO users(user_id,username) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
-                  (m.from_user.id, m.from_user.username or ""))
-
-def log_balance(c, user_id, change_amount, reason, reference=None):
-    c.execute(
-        "INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
-        (user_id, change_amount, reason, str(reference) if reference is not None else None, now().isoformat())
-    )
-
-
-def pool_change(c, delta):
-    row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
-    current = int(row[0]) if row else POOL_START
-    c.execute("INSERT OR REPLACE INTO settings(key,value) VALUES('pool',?)", (str(max(0, current + delta)),))
-
-bot = Bot(TOKEN)
-dp = Dispatcher()
 
 
 
