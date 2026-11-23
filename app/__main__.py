@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, Message
+from aiogram.types import BotCommand, CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, Message
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -68,6 +68,105 @@ def pool_change(c, delta):
 bot = Bot(TOKEN)
 dp = Dispatcher()
 
+
+def admin_panel_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="👥 کاربران", callback_data="panel:users"),
+         InlineKeyboardButton(text="📋 وظایف", callback_data="panel:tasks")],
+        [InlineKeyboardButton(text="🎟 قرعه‌کشی", callback_data="panel:lotteries"),
+         InlineKeyboardButton(text="💸 برداشت‌ها", callback_data="panel:withdrawals")],
+        [InlineKeyboardButton(text="🤝 معاملات", callback_data="panel:trades"),
+         InlineKeyboardButton(text="⛏ استخر استخراج", callback_data="panel:pool")],
+    ])
+
+@dp.message(Command("admin"))
+async def admin_panel(m: Message):
+    if not is_admin(m):
+        await m.answer("این بخش فقط برای مدیر است.")
+        return
+    await m.answer("⚙️ پنل مدیریت GRM Mining\nیک بخش را انتخاب کنید:", reply_markup=admin_panel_keyboard())
+
+@dp.callback_query(F.data.startswith("panel:"))
+async def admin_panel_sections(q: CallbackQuery):
+    if not q.from_user or q.from_user.id != ADMIN_ID:
+        await q.answer("دسترسی فقط برای مدیر مجاز است.", show_alert=True)
+        return
+    section = q.data.split(":", 1)[1]
+    with db() as c:
+        if section == "users":
+            total = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            active = c.execute("SELECT COUNT(*) FROM users WHERE withdraw_after IS NOT NULL").fetchone()[0]
+            text = f"👥 کاربران ثبت‌شده: {total}\nفعال‌سازی تأییدشده: {active}"
+        elif section == "tasks":
+            rows = c.execute("SELECT id,title,reward,active FROM tasks ORDER BY id DESC LIMIT 20").fetchall()
+            text = "📋 وظایف (۲۰ مورد آخر):\n" + ("\n".join([f"#{i} {title} — {reward} GRM | {'فعال' if a else 'غیرفعال'}" for i,title,reward,a in rows]) or "هنوز وظیفه‌ای ثبت نشده است.")
+            text += "\n\nافزودن: /addtask عنوان 25"
+        elif section == "lotteries":
+            rows = c.execute("SELECT id,prize,status,winner_id FROM lotteries ORDER BY id DESC LIMIT 20").fetchall()
+            text = "🎟 قرعه‌کشی‌ها:\n" + ("\n".join([f"#{i} جایزه {p} GRM | {st} | برنده: {w or 'ندارد'}" for i,p,st,w in rows]) or "قرعه‌کشی‌ای ثبت نشده است.")
+            text += "\n\nایجاد: /lottery_create 1000\nانتخاب برنده: /lottery_draw شماره"
+        elif section == "withdrawals":
+            rows = c.execute("SELECT id,user_id,amount,net,wallet FROM withdrawals WHERE status='pending' ORDER BY id").fetchall()
+            text = "💸 درخواست‌های برداشت در انتظار:\n" + ("\n".join([f"#{i} | کاربر {u} | مبلغ {a} | خالص {n} GRM | {w}" for i,u,a,n,w in rows]) or "درخواستی در انتظار نیست.")
+            buttons = [[InlineKeyboardButton(text=f"رد #{i} ↩️", callback_data=f"wd:reject:{i}"),
+                        InlineKeyboardButton(text=f"تأیید #{i} ✓", callback_data=f"wd:approve:{i}")] for i,_,_,_,_ in rows[:10]]
+            if buttons:
+                await q.message.answer("اقدام برای درخواست:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        elif section == "trades":
+            rows = c.execute("SELECT id,user_id,details FROM trades WHERE status='pending' ORDER BY id").fetchall()
+            text = "🤝 معاملات در انتظار:\n" + ("\n".join([f"#{i} | کاربر {u}: {d}" for i,u,d in rows]) or "معامله‌ای در انتظار نیست.")
+            buttons = [[InlineKeyboardButton(text=f"رد #{i} ✕", callback_data=f"tr:reject:{i}"),
+                        InlineKeyboardButton(text=f"تأیید #{i} ✓", callback_data=f"tr:approve:{i}")] for i,_,_ in rows[:10]]
+            if buttons:
+                await q.message.answer("اقدام برای معامله:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        elif section == "pool":
+            pool = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+            text = f"⛏ موجودی استخر: {pool[0] if pool else POOL_START} GRM\nبرای تنظیم: /pool مقدار"
+        else:
+            text = "بخش پیدا نشد."
+    await q.message.answer(text, reply_markup=admin_panel_keyboard())
+    await q.answer()
+
+@dp.callback_query(F.data.startswith("wd:"))
+async def admin_withdraw_action(q: CallbackQuery):
+    if not q.from_user or q.from_user.id != ADMIN_ID:
+        await q.answer("فقط مدیر مجاز است.", show_alert=True)
+        return
+    _, action, raw_id = q.data.split(":")
+    if not raw_id.isdigit() or action not in ("approve", "reject"):
+        await q.answer("درخواست نامعتبر است.", show_alert=True)
+        return
+    req_id = int(raw_id)
+    with db() as c:
+        row = c.execute("SELECT user_id,amount,net,status FROM withdrawals WHERE id=?", (req_id,)).fetchone()
+        if not row or row[3] != "pending":
+            await q.answer("این درخواست دیگر در انتظار نیست.", show_alert=True)
+            return
+        if action == "approve":
+            c.execute("UPDATE withdrawals SET status='approved' WHERE id=? AND status='pending'", (req_id,))
+            result = f"درخواست #{req_id} تأیید شد. مبلغ خالص {row[2]} GRM را دستی پرداخت کنید و سپس /paid {req_id} TX_HASH را بزنید."
+        else:
+            c.execute("UPDATE withdrawals SET status='rejected' WHERE id=? AND status='pending'", (req_id,))
+            pool_change(c, row[1])
+            result = f"درخواست #{req_id} رد شد و {row[1]} GRM به استخر برگشت."
+    await q.message.answer(result, reply_markup=admin_panel_keyboard())
+    await q.answer("انجام شد.")
+
+@dp.callback_query(F.data.startswith("tr:"))
+async def admin_trade_action(q: CallbackQuery):
+    if not q.from_user or q.from_user.id != ADMIN_ID:
+        await q.answer("فقط مدیر مجاز است.", show_alert=True)
+        return
+    _, action, raw_id = q.data.split(":")
+    if not raw_id.isdigit() or action not in ("approve", "reject"):
+        await q.answer("درخواست نامعتبر است.", show_alert=True)
+        return
+    status = "approved" if action == "approve" else "rejected"
+    with db() as c:
+        cur = c.execute("UPDATE trades SET status=? WHERE id=? AND status='pending'", (status, int(raw_id)))
+    await q.message.answer(f"معامله #{raw_id}: {'تأیید' if action == 'approve' else 'رد'} شد." if cur.rowcount else "این معامله دیگر در انتظار نیست.", reply_markup=admin_panel_keyboard())
+    await q.answer("انجام شد.")
+
 @dp.message(CommandStart())
 async def start(m: Message):
     user_upsert(m)
@@ -77,6 +176,8 @@ async def start(m: Message):
         "/activate TX_HASH ثبت تراکنش فعال‌سازی\n"
         "/setwallet آدرس_کیف_پول\n/withdraw مقدار درخواست برداشت\n"
         "/tasks مشاهده وظایف\n/claim شماره_وظیفه\n/trade توضیحات معامله\n/lottery_join ورود به قرعه‌کشی"
+        + ("\n/admin پنل مدیریت" if is_admin(m) else ""),
+        reply_markup=admin_panel_keyboard() if is_admin(m) else None
     )
 
 @dp.message(Command("balance"))
