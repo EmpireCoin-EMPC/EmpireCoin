@@ -459,7 +459,8 @@ def admin_panel_keyboard(lang="en"):
         [InlineKeyboardButton(text="👥 "+x[0],callback_data="panel:users"),InlineKeyboardButton(text="📋 "+x[1],callback_data="panel:tasks")],
         [InlineKeyboardButton(text="🎟 "+x[2],callback_data="panel:lotteries"),InlineKeyboardButton(text="💸 "+x[3],callback_data="panel:withdrawals")],
         [InlineKeyboardButton(text="🤝 "+x[4],callback_data="panel:trades"),InlineKeyboardButton(text="⛏ "+x[5],callback_data="panel:pool")],
-        [InlineKeyboardButton(text="🌐 Language / زبان / Язык",callback_data="user:language")]])
+        [InlineKeyboardButton(text="🌐 Language / زبان / Язык",callback_data="user:language")],
+        *([[InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]] if WEBAPP_URL else [])])
 @dp.message(Command("language"))
 async def language_command(m: Message):
     user_upsert(m)
@@ -1265,6 +1266,7 @@ async def main():
             fee_percent=FEE_PERCENT,
             activation_fee=ACTIVATION_FEE,
             company_wallet=COMPANY_WALLET,
+            admin_id=ADMIN_ID,
             port=WEBAPP_PORT,
         ),
     )
