@@ -295,7 +295,15 @@ def admin_panel_keyboard(lang="en"):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👥 "+x[0],callback_data="panel:users"),InlineKeyboardButton(text="📋 "+x[1],callback_data="panel:tasks")],
         [InlineKeyboardButton(text="🎟 "+x[2],callback_data="panel:lotteries"),InlineKeyboardButton(text="💸 "+x[3],callback_data="panel:withdrawals")],
-        [InlineKeyboardButton(text="🤝 "+x[4],callback_data="panel:trades"),InlineKeyboardButton(text="⛏ "+x[5],callback_data="panel:pool")]])
+        [InlineKeyboardButton(text="🤝 "+x[4],callback_data="panel:trades"),InlineKeyboardButton(text="⛏ "+x[5],callback_data="panel:pool")],
+        [InlineKeyboardButton(text="🌐 Language / زبان / Язык",callback_data="user:language")]])
+@dp.message(Command("language"))
+async def language_command(m: Message):
+    user_upsert(m)
+    lang = get_user_lang(m.from_user.id)
+    prompts = {"en": "Choose your language:", "fa": "زبان خود را انتخاب کنید:", "ru": "Выберите язык:"}
+    await m.answer(prompts[lang], reply_markup=language_keyboard())
+
 @dp.message(Command("admin"))
 async def admin_panel(m:Message):
     lang=get_user_lang(m.from_user.id)
