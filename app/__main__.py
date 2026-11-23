@@ -182,9 +182,9 @@ USER_TEXT = {
 }
 
 USER_COMMAND_TEXT = {
-  "balance": ("Balance: {balance} GRM\\\nMining pool remaining: {pool} GRM\\\n{status}", "موجودی: {balance} GRM\\\nباقی‌مانده استخر: {pool} GRM\\\n{status}", "Баланс: {balance} GRM\\\nОстаток пула: {pool} GRM\\\n{status}"),
-  "activation_pending": ("Activation request submitted and is awaiting admin review. Required payment: {fee} GRAM\\\nCompany wallet: {wallet}\\\nThe 30-day period starts only after the admin verifies the payment.", "درخواست فعال‌سازی ثبت شد و منتظر بررسی مدیر است. مبلغ لازم: {fee} GRAM\\\nکیف پول شرکت: {wallet}\\\nمهلت ۳۰ روزه فقط پس از تأیید واقعی پرداخت توسط مدیر آغاز می‌شود.", "Заявка на активацию отправлена и ожидает проверки администратора. Сумма: {fee} GRAM\\\nКошелёк компании: {wallet}\\\n30-дневный срок начнётся только после проверки платежа администратором."),
-  "wallet_saved": ("Wallet saved:\\\n{wallet}\\\nPlease verify the address carefully before requesting a withdrawal.", "آدرس کیف پول ذخیره شد:\\\n{wallet}\\\nپیش از درخواست برداشت، آدرس را با دقت بررسی کنید.", "Кошелёк сохранён:\\\n{wallet}\\\nПеред запросом вывода внимательно проверьте адрес."),
+  "balance": ("Balance: {balance} GRM\\nMining pool remaining: {pool} GRM\\n{status}", "موجودی: {balance} GRM\\nباقی‌مانده استخر: {pool} GRM\\n{status}", "Баланс: {balance} GRM\\nОстаток пула: {pool} GRM\\n{status}"),
+  "activation_pending": ("Activation request submitted and is awaiting admin review. Required payment: {fee} GRAM\\nCompany wallet: {wallet}\\nThe 30-day period starts only after the admin verifies the payment.", "درخواست فعال‌سازی ثبت شد و منتظر بررسی مدیر است. مبلغ لازم: {fee} GRAM\\nکیف پول شرکت: {wallet}\\nمهلت ۳۰ روزه فقط پس از تأیید واقعی پرداخت توسط مدیر آغاز می‌شود.", "Заявка на активацию отправлена и ожидает проверки администратора. Сумма: {fee} GRAM\\nКошелёк компании: {wallet}\\n30-дневный срок начнётся только после проверки платежа администратором."),
+  "wallet_saved": ("Wallet saved:\\n{wallet}\\nPlease verify the address carefully before requesting a withdrawal.", "آدرس کیف پول ذخیره شد:\\n{wallet}\\nپیش از درخواست برداشت، آدرس را با دقت بررسی کنید.", "Кошелёк сохранён:\\n{wallet}\\nПеред запросом вывода внимательно проверьте адрес."),
   "wallet": ("To save your wallet, send:\n/setwallet WALLET_ADDRESS", "برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS", "Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS"),
   "withdraw_usage": ("Usage: /withdraw AMOUNT_G​​RM", "روش استفاده: /withdraw مقدار_GRM", "Использование: /withdraw СУММА_GRM"),
   "wallet_required": ("Please set your TON wallet first using /setwallet WALLET_ADDRESS.", "ابتدا کیف پول TON خود را با دستور /setwallet آدرس ثبت کنید.", "Сначала укажите TON-кошелёк командой /setwallet АДРЕС."),
@@ -654,7 +654,7 @@ async def tasks_admin(m: Message):
         return
     lines = ["وظایف فعال (برای حذف: /deltask شناسه):"]
     lines.extend([f"#{task_id} — {title or 'بدون عنوان'} — {reward} GRM" for task_id, title, reward in rows])
-    await m.answer("\\n".join(lines))
+    await m.answer("\n".join(lines))
 
 
 @dp.message(Command("deltask"))
@@ -663,7 +663,7 @@ async def deltask(m: Message):
         return
     parts = (m.text or "").split()
     if len(parts) != 2 or not parts[1].isdigit():
-        await m.answer("روش استفاده: /deltask TASK_ID\\nبرای دیدن شناسه‌ها: /tasks_admin")
+        await m.answer("روش استفاده: /deltask TASK_ID\nبرای دیدن شناسه‌ها: /tasks_admin")
         return
     task_id = int(parts[1])
     with db() as c:
