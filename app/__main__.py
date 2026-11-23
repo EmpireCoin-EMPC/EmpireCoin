@@ -1013,7 +1013,7 @@ async def main():
         BotCommand(command="setwallet", description="Set your wallet address"),
         BotCommand(command="withdraw", description="Request a withdrawal"),
         BotCommand(command="tasks", description="View available tasks"),
-        BotCommand(command="claim", description="Claim a task reward"),
+        BotCommand(command="claim", description="Submit task evidence for review"),
         BotCommand(command="trade", description="Request a trade"),
         BotCommand(command="lottery_join", description="Join the lottery"),
     ])
