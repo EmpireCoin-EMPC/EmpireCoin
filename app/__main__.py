@@ -40,6 +40,11 @@ def init_db():
         c.execute("""CREATE TABLE IF NOT EXISTS tasks(
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, reward INTEGER,
             active INTEGER DEFAULT 1)""")
+        task_cols = [row[1] for row in c.execute("PRAGMA table_info(tasks)").fetchall()]
+        for col in ("title_en", "title_fa", "title_ru", "desc_en", "desc_fa", "desc_ru"):
+            if col not in task_cols:
+                c.execute(f"ALTER TABLE tasks ADD COLUMN {col} TEXT")
+        c.execute("UPDATE tasks SET title_en=COALESCE(title_en,title), title_fa=COALESCE(title_fa,title), title_ru=COALESCE(title_ru,title)")
         c.execute("""CREATE TABLE IF NOT EXISTS task_claims(
             user_id INTEGER, task_id INTEGER, PRIMARY KEY(user_id, task_id))""")
         c.execute("""CREATE TABLE IF NOT EXISTS trades(
@@ -105,6 +110,13 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text=a[6], callback_data="user:trade"), InlineKeyboardButton(text=a[7], callback_data="user:activate")],
         [InlineKeyboardButton(text=a[8], callback_data="user:language")],
     ])
+
+def localized_task_text(row, lang):
+    index = {"en": 0, "fa": 1, "ru": 2}.get(lang, 0)
+    title = row[3 + index] or row[1]
+    description = row[6 + index] or ""
+    result = f"#{row[0]} {title} — {row[2]} GRM"
+    return result + (f"\\n{description}" if description else "")
 
 def user_upsert_from_id(user_id: int, username: str):
     with db() as c:
@@ -606,11 +618,25 @@ async def paid(m: Message):
 
 @dp.message(Command("addtask"))
 async def addtask(m: Message):
-    if not is_admin(m): return
-    p=(m.text or "").split(maxsplit=2)
-    if len(p)!=3 or not p[2].isdigit(): await m.answer("روش استفاده: /addtask عنوان | دستور واقعی: /addtask عنوان 25"); return
-    with db() as c: c.execute("INSERT INTO tasks(title,reward) VALUES(?,?)",(p[1],int(p[2])))
-    await m.answer("وظیفه اضافه شد.")
+    if not is_admin(m):
+        return
+    raw = (m.text or "").partition(" ")[2].strip()
+    parts = [part.strip() for part in raw.split("|")]
+    if len(parts) == 7 and parts[6].isdigit() and all(parts[:3]):
+        en_title, fa_title, ru_title, en_desc, fa_desc, ru_desc = parts[:6]
+        reward = int(parts[6])
+    else:
+        legacy = raw.rsplit(maxsplit=1)
+        if len(legacy) != 2 or not legacy[1].isdigit() or not legacy[0].strip():
+            await m.answer("Format: /addtask EN title | FA title | RU title | EN description | FA description | RU description | reward")
+            return
+        en_title = fa_title = ru_title = legacy[0].strip()
+        en_desc = fa_desc = ru_desc = ""
+        reward = int(legacy[1])
+    with db() as c:
+        c.execute("INSERT INTO tasks(title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru) VALUES(?,?,?,?,?,?,?,?)",
+                  (en_title, reward, en_title, fa_title, ru_title, en_desc, fa_desc, ru_desc))
+    await m.answer("Task added in English, Persian and Russian.")
 
 @dp.message(Command("pool"))
 async def pool(m: Message):
