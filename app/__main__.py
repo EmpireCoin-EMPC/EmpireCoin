@@ -169,9 +169,39 @@ USER_TEXT = {
  }
 }
 
+USER_COMMAND_TEXT = {
+  "balance": ("Balance: {balance} GRM\\\\nMining pool remaining: {pool} GRM\\\\n{status}", "موجودی: {balance} GRM\\\\nباقی‌مانده استخر: {pool} GRM\\\\n{status}", "Баланс: {balance} GRM\\\\nОстаток пула: {pool} GRM\\\\n{status}"),
+  "activation_pending": ("Activation request submitted and is awaiting admin review. Required payment: {fee} GRAM\\\\nCompany wallet: {wallet}\\\\nThe 30-day period starts only after the admin verifies the payment.", "درخواست فعال‌سازی ثبت شد و منتظر بررسی مدیر است. مبلغ لازم: {fee} GRAM\\\\nکیف پول شرکت: {wallet}\\\\nمهلت ۳۰ روزه فقط پس از تأیید واقعی پرداخت توسط مدیر آغاز می‌شود.", "Заявка на активацию отправлена и ожидает проверки администратора. Сумма: {fee} GRAM\\\\nКошелёк компании: {wallet}\\\\n30-дневный срок начнётся только после проверки платежа администратором."),
+  "wallet_saved": ("Wallet saved:\\\\n{wallet}\\\\nPlease verify the address carefully before requesting a withdrawal.", "آدرس کیف پول ذخیره شد:\\\\n{wallet}\\\\nپیش از درخواست برداشت، آدرس را با دقت بررسی کنید.", "Кошелёк сохранён:\\\\n{wallet}\\\\nПеред запросом вывода внимательно проверьте адрес."),
+  "withdraw_usage": ("Usage: /withdraw AMOUNT_G​​RM", "روش استفاده: /withdraw مقدار_GRM", "Использование: /withdraw СУММА_GRM"),
+  "wallet_required": ("Please set your TON wallet first using /setwallet WALLET_ADDRESS.", "ابتدا کیف پول TON خود را با دستور /setwallet آدرس ثبت کنید.", "Сначала укажите TON-кошелёк командой /setwallet АДРЕС."),
+  "withdraw_locked": ("Withdrawals are not available yet. Pay {fee} GRAM and wait {days} days after admin approval.", "برداشت هنوز فعال نیست. مبلغ {fee} GRAM را پرداخت کنید و پس از تأیید مدیر {days} روز صبر کنید.", "Вывод пока недоступен. Оплатите {fee} GRAM и подождите {days} дней после подтверждения администратором."),
+  "insufficient": ("Insufficient balance.", "موجودی کافی نیست.", "Недостаточно средств."),
+  "withdraw_created": ("Withdrawal request #{id} submitted. Gross: {amount} GRM; fee ({percent}%): {fee} GRM; net: {net} GRM. Payment is manual after admin approval.", "درخواست برداشت #{id} ثبت شد. مبلغ ناخالص: {amount} GRM؛ کارمزد ({percent}%): {fee} GRM؛ مبلغ خالص: {net} GRM. پرداخت پس از تأیید مدیر دستی انجام می‌شود.", "Заявка на вывод №{id} создана. Сумма: {amount} GRM; комиссия ({percent}%): {fee} GRM; к выплате: {net} GRM. Выплата производится вручную после одобрения администратора."),
+  "tasks_empty": ("No tasks are available right now.", "فعلاً وظیفه‌ای ثبت نشده است.", "Сейчас заданий нет."),
+  "claim_usage": ("Usage: /claim TASK_ID", "روش استفاده: /claim شماره_وظیفه", "Использование: /claim ID_ЗАДАНИЯ"),
+  "task_missing": ("Task not found.", "وظیفه پیدا نشد.", "Задание не найдено."),
+  "task_duplicate": ("You have already claimed this task.", "این وظیفه قبلاً برای شما ثبت شده است.", "Вы уже отправили заявку по этому заданию."),
+  "task_paid": ("{reward} GRM added. Note: task completion is self-reported in this version.", "{reward} GRM اضافه شد. توجه: انجام وظیفه در نسخه فعلی به‌صورت خوداظهاری است.", "Добавлено {reward} GRM. В этой версии выполнение задания подтверждается самим пользователем."),
+  "trade_usage": ("Usage: /trade TRADE_DETAILS", "روش استفاده: /trade توضیحات_معامله", "Использование: /trade ОПИСАНИЕ_СДЕЛКИ"),
+  "trade_sent": ("Your trade request has been sent to the administrator for review.", "درخواست معامله برای بررسی مدیر ارسال شد.", "Запрос на сделку отправлен администратору на рассмотрение."),
+  "lottery_none": ("There is no active lottery.", "قرعه‌کشی فعالی وجود ندارد.", "Нет активной лотереи."),
+  "lottery_dup": ("You have already entered this lottery.", "قبلاً در این قرعه‌کشی ثبت شده‌اید.", "Вы уже участвуете в этой лотерее."),
+  "lottery_ok": ("You have entered the lottery.", "در قرعه‌کشی ثبت شدید.", "Вы зарегистрированы в лотерее."),
+}
+
+
 def ut(lang, key, **kwargs):
     template = USER_TEXT.get(lang, USER_TEXT["en"]).get(key, USER_TEXT["en"].get(key, key))
     return template.format(**kwargs)
+
+def uct(lang, key, **kwargs):
+    values = USER_COMMAND_TEXT.get(key)
+    if not values:
+        return key
+    index = {"en": 0, "fa": 1, "ru": 2}.get(lang, 0)
+    return values[index].format(**kwargs)
+
 
 @dp.callback_query(F.data.startswith("user:"))
 async def user_menu_actions(q: CallbackQuery):
@@ -355,141 +385,157 @@ async def start(m: Message):
     )
 
 @dp.message(Command("balance"))
+@dp.message(Command("balance"))
 async def balance(m: Message):
     user_upsert(m)
+    lang = get_user_lang(m.from_user.id)
     with db() as c:
         row = c.execute("SELECT balance,withdraw_after FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
         pool = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
-    status = f"زمان مجاز برداشت: {row[1]}" if row[1] else "فعال‌سازی 0.5 GRAM هنوز تأیید نشده است."
-    await m.answer(f"موجودی: {row[0]} GRM\nاستخر باقی‌مانده: {pool} GRM\n{status}")
+    status = ut(lang, "status", date=row[1]) if row[1] else ut(lang, "inactive")
+    await m.answer(ut(lang, "balance", balance=row[0], pool=pool, status=status))
 
+@dp.message(Command("mine"))
 @dp.message(Command("mine"))
 async def mine(m: Message):
     user_upsert(m)
+    lang = get_user_lang(m.from_user.id)
     t = now()
     with db() as c:
         row = c.execute("SELECT last_mine FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
         pool = int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
         if row[0] and t - datetime.fromisoformat(row[0]) < timedelta(hours=1):
             left = timedelta(hours=1) - (t - datetime.fromisoformat(row[0]))
-            await m.answer(f"هنوز یک ساعت کامل نشده است. زمان باقی‌مانده: {str(left).split('.')[0]}")
+            await m.answer(ut(lang, "mine_wait", left=str(left).split('.')[0]))
             return
         reward = min(HOURLY_REWARD, pool)
         if reward <= 0:
-            await m.answer("استخر استخراج موجودی ندارد.")
+            await m.answer(ut(lang, "mine_empty"))
             return
-        c.execute("UPDATE users SET balance=balance+?,last_mine=? WHERE user_id=?",
-                  (reward, t.isoformat(), m.from_user.id))
+        c.execute("UPDATE users SET balance=balance+?,last_mine=? WHERE user_id=?", (reward, t.isoformat(), m.from_user.id))
         pool_change(c, -reward)
-    await m.answer(f"{reward} GRM به موجودی شما اضافه شد.")
+    await m.answer(ut(lang, "mine_ok", reward=reward))
 
+@dp.message(Command("activate"))
 @dp.message(Command("activate"))
 async def activate(m: Message):
     user_upsert(m)
+    lang = get_user_lang(m.from_user.id)
     parts = (m.text or "").split(maxsplit=1)
     if len(parts) != 2 or len(parts[1].strip()) < 8:
-        await m.answer(f"روش استفاده: /activate TX_HASH\nابتدا دقیقاً {ACTIVATION_FEE} GRAM به کیف پول شرکت بفرستید:\n{COMPANY_WALLET}\nسپس /activate TX_HASH را اجرا کنید. برداشت فقط 30 روز پس از تأیید دستی تراکنش توسط مدیر فعال می‌شود.", reply_markup=copy_text_keyboard(COMPANY_WALLET, "📋 کپی آدرس کیف پول شرکت"))
+        await m.answer(ut(lang, "activate", fee=ACTIVATION_FEE, wallet=COMPANY_WALLET), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
         return
     tx = parts[1].strip()
     with db() as c:
         c.execute("UPDATE users SET activation_tx=?,activation_at=NULL,withdraw_after=NULL WHERE user_id=?", (tx, m.from_user.id))
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"درخواست بررسی فعال‌سازی\nکاربر: {m.from_user.id}\nTX: {tx}\nمبلغ مورد انتظار: {ACTIVATION_FEE} GRAM\nکیف پول مقصد: {COMPANY_WALLET}\nپس از بررسی در TON explorer: /activation_ok {m.from_user.id}")
-    await m.answer(f"شناسه تراکنش ثبت شد و در انتظار بررسی مدیر است. مبلغ موردنیاز: {ACTIVATION_FEE} GRAM\nکیف پول شرکت: {COMPANY_WALLET}\nزمان 30 روزه فقط پس از بررسی و تأیید واقعی پرداخت توسط مدیر شروع می‌شود.", reply_markup=copy_text_keyboard(COMPANY_WALLET, "📋 کپی آدرس کیف پول شرکت"))
+        await bot.send_message(ADMIN_ID, f"Activation review request\\nUser: {m.from_user.id}\\nTX: {tx}\\nExpected: {ACTIVATION_FEE} GRAM\\nDestination: {COMPANY_WALLET}\\nAfter checking TON explorer: /activation_ok {m.from_user.id}")
+    await m.answer(uct(lang, "activation_pending", fee=ACTIVATION_FEE, wallet=COMPANY_WALLET), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
 
+@dp.message(Command("setwallet"))
 @dp.message(Command("setwallet"))
 async def setwallet(m: Message):
     p = (m.text or "").split(maxsplit=1)
+    lang = get_user_lang(m.from_user.id)
     if len(p) != 2:
-        await m.answer("روش استفاده: /setwallet آدرس_کیف_پول_TON")
+        await m.answer(uct(lang, "wallet",))
         return
     with db() as c:
         c.execute("UPDATE users SET wallet=? WHERE user_id=?", (p[1].strip(), m.from_user.id))
-    await m.answer(f"آدرس کیف پول ذخیره شد:\n{p[1].strip()}\nقبل از برداشت، آن را با دقت بررسی کنید.", reply_markup=copy_text_keyboard(p[1].strip(), "📋 کپی آدرس کیف پول من"))
+    await m.answer(uct(lang, "wallet_saved", wallet=p[1].strip()), reply_markup=copy_text_keyboard(p[1].strip(), ut(lang, "copy_wallet")))
 
+@dp.message(Command("withdraw"))
 @dp.message(Command("withdraw"))
 async def withdraw(m: Message):
     p = (m.text or "").split()
+    lang = get_user_lang(m.from_user.id)
     if len(p) != 2 or not p[1].isdigit() or int(p[1]) <= 0:
-        await m.answer("روش استفاده: /withdraw مقدار_GRM")
+        await m.answer(uct(lang, "withdraw_usage"))
         return
     amount = int(p[1])
     with db() as c:
         u = c.execute("SELECT balance,wallet,withdraw_after FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
         if not u or not u[1]:
-            await m.answer("ابتدا کیف پول TON خود را با /setwallet ثبت کنید.")
+            await m.answer(uct(lang, "wallet_required"))
             return
         if not u[2] or now() < datetime.fromisoformat(u[2]):
-            await m.answer(f"برداشت هنوز فعال نیست. ابتدا 0.5 GRAM را پرداخت و فعال‌سازی را تأیید کنید؛ سپس باید {WAIT_DAYS} روز از زمان تأیید بگذرد.")
+            await m.answer(uct(lang, "withdraw_locked", fee=ACTIVATION_FEE, days=WAIT_DAYS))
             return
         if amount > u[0]:
-            await m.answer("موجودی کافی نیست.")
+            await m.answer(uct(lang, "insufficient"))
             return
         fee = amount * FEE_PERCENT // 100
         net = amount - fee
         c.execute("UPDATE users SET balance=balance-? WHERE user_id=?", (amount, m.from_user.id))
-        cur = c.execute("INSERT INTO withdrawals(user_id,amount,fee,net,wallet,created_at) VALUES(?,?,?,?,?,?)",
-                        (m.from_user.id, amount, fee, net, u[1], now().isoformat()))
+        cur = c.execute("INSERT INTO withdrawals(user_id,amount,fee,net,wallet,created_at) VALUES(?,?,?,?,?,?)", (m.from_user.id, amount, fee, net, u[1], now().isoformat()))
         req_id = cur.lastrowid
-    await m.answer(f"درخواست برداشت شماره {req_id} ثبت شد. مبلغ ناخالص: {amount} GRM؛ کارمزد {FEE_PERCENT}%: {fee}؛ مبلغ خالص: {net} GRM. پرداخت پس از تأیید مدیر به‌صورت دستی انجام می‌شود.")
+    await m.answer(uct(lang, "withdraw_created", id=req_id, amount=amount, percent=FEE_PERCENT, fee=fee, net=net))
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"برداشت #{req_id}\nکاربر: {m.from_user.id}\nمبلغ: {amount}\nخالص: {net}\nکیف پول: {u[1]}\nبرای بررسی: /pending")
+        await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\\nUser: {m.from_user.id}\\nGross: {amount}\\nNet: {net}\\nWallet: {u[1]}\\nReview: /pending")
 
 @dp.message(Command("tasks"))
+@dp.message(Command("tasks"))
 async def tasks(m: Message):
+    lang = get_user_lang(m.from_user.id)
     with db() as c:
         rows = c.execute("SELECT id,title,reward FROM tasks WHERE active=1").fetchall()
-    await m.answer("\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or "فعلاً وظیفه‌ای ثبت نشده است.")
+    await m.answer("\\n".join([f"{i}. {title} — {reward} GRM" for i,title,reward in rows]) or uct(lang, "tasks_empty"))
 
+@dp.message(Command("claim"))
 @dp.message(Command("claim"))
 async def claim(m: Message):
     p = (m.text or "").split()
+    lang = get_user_lang(m.from_user.id)
     if len(p) != 2 or not p[1].isdigit():
-        await m.answer("روش استفاده: /claim شماره_وظیفه")
+        await m.answer(uct(lang, "claim_usage"))
         return
     tid = int(p[1])
     with db() as c:
         task = c.execute("SELECT reward FROM tasks WHERE id=? AND active=1", (tid,)).fetchone()
         if not task:
-            await m.answer("وظیفه پیدا نشد.")
+            await m.answer(uct(lang, "task_missing"))
             return
         try:
             c.execute("INSERT INTO task_claims(user_id,task_id) VALUES(?,?)", (m.from_user.id,tid))
         except sqlite3.IntegrityError:
-            await m.answer("این وظیفه قبلاً ثبت شده است.")
+            await m.answer(uct(lang, "task_duplicate"))
             return
         pool = int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
         reward = min(task[0], pool)
         c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (reward,m.from_user.id))
         pool_change(c,-reward)
-    await m.answer(f"{reward} GRM اضافه شد. توجه: ادعای انجام وظیفه در نسخه فعلی به‌صورت خوداظهاری است.")
+    await m.answer(uct(lang, "task_paid", reward=reward))
 
+@dp.message(Command("trade"))
 @dp.message(Command("trade"))
 async def trade(m: Message):
     p=(m.text or "").split(maxsplit=1)
+    lang = get_user_lang(m.from_user.id)
     if len(p)!=2:
-        await m.answer("روش استفاده: /trade توضیحات معامله")
+        await m.answer(uct(lang, "trade_usage"))
         return
     with db() as c:
         cur=c.execute("INSERT INTO trades(user_id,details) VALUES(?,?)",(m.from_user.id,p[1]))
         tid=cur.lastrowid
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID,f"معامله جدید #{tid} از کاربر {m.from_user.id}: {p[1]}\n/approve_trade {tid} یا /reject_trade {tid}")
-    await m.answer("درخواست معامله برای بررسی مدیر ارسال شد.")
+        await bot.send_message(ADMIN_ID,f"New trade #{tid} from user {m.from_user.id}: {p[1]}\\n/approve_trade {tid} or /reject_trade {tid}")
+    await m.answer(uct(lang, "trade_sent"))
 
 @dp.message(Command("lottery_join"))
+@dp.message(Command("lottery_join"))
 async def lottery_join(m: Message):
+    lang = get_user_lang(m.from_user.id)
     with db() as c:
         lot=c.execute("SELECT id FROM lotteries WHERE status='open' ORDER BY id DESC LIMIT 1").fetchone()
         if not lot:
-            await m.answer("قرعه‌کشی فعالی وجود ندارد.")
+            await m.answer(uct(lang, "lottery_none"))
             return
         try:
             c.execute("INSERT INTO lottery_entries(lottery_id,user_id) VALUES(?,?)",(lot[0],m.from_user.id))
         except sqlite3.IntegrityError:
-            await m.answer("قبلاً در این قرعه‌کشی ثبت شده‌اید.")
+            await m.answer(uct(lang, "lottery_dup"))
             return
-    await m.answer("در قرعه‌کشی ثبت شدید.")
+    await m.answer(uct(lang, "lottery_ok"))
 
 @dp.message(Command("pending"))
 async def pending(m: Message):
