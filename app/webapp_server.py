@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl
 
 from aiohttp import web
+from aiogram import Bot
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEB_DIR = BASE_DIR / "webapp"
@@ -42,7 +43,7 @@ def _telegram_user(request, bot_token):
     return user
 
 
-def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee, company_wallet):
+def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee, company_wallet, admin_id):
     app = web.Application(client_max_size=2 * 1024 * 1024)
     app["bot_token"] = bot_token
     app["db_path"] = db_path
@@ -50,6 +51,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     app["fee_percent"] = fee_percent
     app["activation_fee"] = activation_fee
     app["company_wallet"] = company_wallet
+    app["admin_id"] = int(admin_id)
 
     async def index(request):
         return web.FileResponse(WEB_DIR / "index.html")
@@ -157,6 +159,54 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             c.execute("UPDATE settings SET value=? WHERE key='pool'", (str(max(0, pool-reward)),))
         return web.json_response({"ok": True, "reward": reward})
 
+    async def withdraw_request(request):
+        tg = _user(request)
+        uid = int(tg["id"])
+        try:
+            body = await request.json()
+            amount = int(body.get("amount", 0))
+        except (ValueError, TypeError, AttributeError):
+            raise web.HTTPBadRequest(text="Enter a valid whole-number amount")
+        if amount < 17000:
+            raise web.HTTPBadRequest(text="Minimum withdrawal is 17,000 GRM")
+        fee = amount * app["fee_percent"] // 100
+        net = amount - fee
+        with _db(app["db_path"]) as c:
+            c.execute("BEGIN IMMEDIATE")
+            user = c.execute(
+                "SELECT balance,wallet,activation_at,checkin_day FROM users WHERE user_id=?", (uid,)
+            ).fetchone()
+            if not user or not user[2]:
+                raise web.HTTPForbidden(text="Activation is required")
+            if not user[1]:
+                raise web.HTTPBadRequest(text="Register your TON wallet in the bot first")
+            if int(user[3] or 0) < 30:
+                raise web.HTTPForbidden(text="Complete 30 successful daily check-ins first")
+            if amount > int(user[0] or 0):
+                raise web.HTTPBadRequest(text="Insufficient GRM balance")
+            cur = c.execute(
+                "INSERT INTO withdrawals(user_id,amount,fee,net,wallet,created_at) VALUES(?,?,?,?,?,?)",
+                (uid, amount, fee, net, user[1], datetime.now(timezone.utc).isoformat())
+            )
+            request_id = cur.lastrowid
+            c.execute("UPDATE users SET balance=balance-? WHERE user_id=?", (amount, uid))
+            c.execute(
+                "INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+                (uid, -amount, "withdrawal_request", str(request_id), datetime.now(timezone.utc).isoformat())
+            )
+        try:
+            admin_bot = Bot(token=app["bot_token"])
+            try:
+                await admin_bot.send_message(
+                    app["admin_id"],
+                    f"New Mini App withdrawal #{request_id}\nUser: {uid}\nGross: {amount} GRM\nFee ({app['fee_percent']}%): {fee} GRM\nNet to send: {net} GRM\nWallet: {user[1]}\nReview: /pending"
+                )
+            finally:
+                await admin_bot.session.close()
+        except Exception as exc:
+            print(f"[webapp] Could not notify admin about withdrawal #{request_id}: {exc}")
+        return web.json_response({"ok": True, "request_id": request_id, "amount": amount, "fee": fee, "net": net})
+
     async def save_language(request):
         tg = _user(request)
         body = await request.json()
@@ -173,13 +223,14 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     app.router.add_post("/api/checkin", checkin)
     app.router.add_post("/api/mine", mine)
     app.router.add_post("/api/language", save_language)
+    app.router.add_post("/api/withdraw", withdraw_request)
     return app
 
 
-async def start_webapp_server(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee, company_wallet, host="0.0.0.0", port=8080):
+async def start_webapp_server(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee, company_wallet, admin_id, host="0.0.0.0", port=8080):
     app = create_app(
         bot_token=bot_token, db_path=db_path, hourly_reward=hourly_reward,
-        fee_percent=fee_percent, activation_fee=activation_fee, company_wallet=company_wallet
+        fee_percent=fee_percent, activation_fee=activation_fee, company_wallet=company_wallet, admin_id=admin_id
     )
     runner = web.AppRunner(app)
     await runner.setup()
