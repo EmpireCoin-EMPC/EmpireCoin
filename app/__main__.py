@@ -1212,7 +1212,6 @@ async def admin_send_private_message(m: Message):
             f"SELECT user_id FROM users WHERE user_id IN ({','.join('?' for _ in recipient_ids)})",
             recipient_ids
         ).fetchall()}
-    unknown = [uid for uid in recipient_ids if uid not in known_ids]
     sent, failed = [], []
     for uid in recipient_ids:
         if uid not in known_ids:
