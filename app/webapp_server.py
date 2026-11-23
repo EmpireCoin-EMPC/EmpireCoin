@@ -11,6 +11,7 @@ from urllib.parse import parse_qsl
 
 from aiohttp import web
 from aiogram import Bot
+from aiogram.types import BufferedInputFile
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WEB_DIR = BASE_DIR / "webapp"
@@ -80,9 +81,11 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                 "FROM tasks WHERE active=1 ORDER BY id DESC LIMIT 30"
             ).fetchall()
             claimed = {r[0] for r in c.execute("SELECT task_id FROM task_claims WHERE user_id=?", (uid,)).fetchall()}
-            pending = {r[0] for r in c.execute(
-                "SELECT task_id FROM task_submissions WHERE user_id=? AND status='pending'", (uid,)
-            ).fetchall()}
+            submissions = {}
+            for task_id, status in c.execute(
+                "SELECT task_id,status FROM task_submissions WHERE user_id=? ORDER BY id DESC", (uid,)
+            ).fetchall():
+                submissions.setdefault(task_id, status)
         lang = row[7] if row[7] in ("en", "fa", "ru") else "en"
         task_items = []
         idx = {"en": 0, "fa": 1, "ru": 2}[lang]
@@ -91,7 +94,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             desc = t[6 + idx] or ""
             task_items.append({
                 "id": t[0], "title": title, "description": desc, "reward": t[5],
-                "status": "claimed" if t[0] in claimed else ("pending" if t[0] in pending else "available")
+                "status": "claimed" if t[0] in claimed else submissions.get(t[0], "available")
             })
         pool = int(pool_row[0]) if pool_row else 0
         last_mine = datetime.fromisoformat(row[6]) if row[6] else None
@@ -243,6 +246,74 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             )
         return web.json_response({"ok": True, "wallet": wallet})
 
+
+    async def task_submit(request):
+        tg = _user(request)
+        uid = int(tg["id"])
+        reader = await request.multipart()
+        fields = {}
+        photo_bytes = None
+        photo_name = "evidence.jpg"
+        async for part in reader:
+            if part.name == "photo":
+                if not part.headers.get("Content-Type", "").startswith("image/"):
+                    raise web.HTTPBadRequest(text="Please upload an image file")
+                photo_name = part.filename or photo_name
+                photo_bytes = await part.read(decode=False)
+                if len(photo_bytes) > 5 * 1024 * 1024:
+                    raise web.HTTPRequestEntityTooLarge(max_size=5 * 1024 * 1024, actual_size=len(photo_bytes))
+            else:
+                fields[part.name] = await part.text()
+        try:
+            task_id = int(fields.get("task_id", "0"))
+        except (TypeError, ValueError):
+            raise web.HTTPBadRequest(text="Invalid task")
+        evidence = (fields.get("evidence") or "").strip()
+        if len(evidence) > 3000:
+            raise web.HTTPBadRequest(text="Evidence text is too long (maximum 3000 characters)")
+        if not evidence and not photo_bytes:
+            raise web.HTTPBadRequest(text="Add evidence text, a link, or a photo")
+        with _db(app["db_path"]) as c:
+            c.execute("BEGIN IMMEDIATE")
+            user = c.execute("SELECT activation_at FROM users WHERE user_id=?", (uid,)).fetchone()
+            if not user or not user[0]:
+                raise web.HTTPForbidden(text="Account activation is required")
+            task = c.execute("SELECT reward FROM tasks WHERE id=? AND active=1", (task_id,)).fetchone()
+            if not task:
+                raise web.HTTPNotFound(text="Task not found or inactive")
+            if c.execute("SELECT 1 FROM task_claims WHERE user_id=? AND task_id=?", (uid, task_id)).fetchone():
+                raise web.HTTPConflict(text="This task has already been completed")
+            pending = c.execute("SELECT id FROM task_submissions WHERE user_id=? AND task_id=? AND status='pending'", (uid, task_id)).fetchone()
+            if pending:
+                raise web.HTTPConflict(text=f"Submission #{pending[0]} is already waiting for review")
+            cur = c.execute(
+                """INSERT INTO task_submissions(user_id,task_id,evidence,media_file_id,media_type,status,created_at)
+                   VALUES(?,?,?,NULL,?,'pending',?)""",
+                (uid, task_id, evidence or "Photo evidence", "photo" if photo_bytes else None, datetime.now(timezone.utc).isoformat())
+            )
+            submission_id = cur.lastrowid
+        caption = (
+            f"Mini App task submission #{submission_id}\nUser: {uid}\nTask: #{task_id}\n"
+            f"Reward: {task[0]} GRM\nEvidence: {evidence or 'Photo attached'}\n"
+            f"Approve: /task_approve {submission_id}\nReject: /task_reject {submission_id}"
+        )
+        try:
+            admin_bot = Bot(token=app["bot_token"])
+            try:
+                if photo_bytes:
+                    sent = await admin_bot.send_photo(app["admin_id"], BufferedInputFile(photo_bytes, filename=photo_name), caption=caption[:1024])
+                    file_id = sent.photo[-1].file_id if sent.photo else None
+                    if file_id:
+                        with _db(app["db_path"]) as c:
+                            c.execute("UPDATE task_submissions SET media_file_id=? WHERE id=?", (file_id, submission_id))
+                else:
+                    await admin_bot.send_message(app["admin_id"], caption)
+            finally:
+                await admin_bot.session.close()
+        except Exception as exc:
+            print(f"[webapp] Could not notify admin about task submission #{submission_id}: {exc}")
+        return web.json_response({"ok": True, "submission_id": submission_id, "reward": int(task[0]), "status": "pending"})
+
     async def save_language(request):
         tg = _user(request)
         body = await request.json()
@@ -261,6 +332,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     app.router.add_post("/api/language", save_language)
     app.router.add_post("/api/wallet", save_wallet)
     app.router.add_post("/api/withdraw", withdraw_request)
+    app.router.add_post("/api/task_submit", task_submit)
     return app
 
 
