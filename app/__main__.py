@@ -283,65 +283,60 @@ async def user_menu_actions(q: CallbackQuery):
     await q.message.answer(text, reply_markup=markup)
     await q.answer()
 
-def admin_panel_keyboard():
+ADMIN_LABELS={"en":["Users","Tasks","Lottery","Withdrawals","Trades","Mining pool","Choose a section:"],"fa":["کاربران","وظایف","قرعه‌کشی","برداشت‌ها","معاملات","استخر استخراج","یک بخش را انتخاب کنید:"],"ru":["Пользователи","Задания","Лотерея","Выводы","Сделки","Пул майнинга","Выберите раздел:"]}
+ADMIN_MESSAGES={
+"en":{"users":"Registered users: {total}\\nApproved activations: {active}","tasks":"Tasks (latest 20):\\n{items}\\n\\nAdd: /addtask EN title | FA title | RU title | EN description | FA description | RU description | reward","tasks_empty":"No tasks have been added yet.","lotteries":"Lotteries:\\n{items}\\n\\nCreate: /lottery_create 1000\\nDraw: /lottery_draw LOTTERY_ID","lotteries_empty":"No lotteries found.","withdrawals":"Pending withdrawals:\\n{items}","withdrawals_empty":"No pending requests.","trades":"Pending trades:\\n{items}","trades_empty":"No pending trades.","pool":"Mining pool: {pool} GRM\\nSet with: /pool AMOUNT","missing":"Section not found.","menu":"GRM Mining Admin Panel\\n{menu}","only":"Administrator only.","action_withdraw":"Withdrawal actions:","action_trade":"Trade actions:"},
+"fa":{"users":"کاربران ثبت‌شده: {total}\\nفعال‌سازی تأییدشده: {active}","tasks":"وظایف (۲۰ مورد آخر):\\n{items}\\n\\nافزودن: /addtask عنوان انگلیسی | عنوان فارسی | عنوان روسی | توضیح انگلیسی | توضیح فارسی | توضیح روسی | پاداش","tasks_empty":"هنوز وظیفه‌ای ثبت نشده است.","lotteries":"قرعه‌کشی‌ها:\\n{items}\\n\\nایجاد: /lottery_create 1000\\nانتخاب برنده: /lottery_draw شماره","lotteries_empty":"قرعه‌کشی‌ای ثبت نشده است.","withdrawals":"درخواست‌های برداشت در انتظار:\\n{items}","withdrawals_empty":"درخواستی در انتظار نیست.","trades":"معاملات در انتظار:\\n{items}","trades_empty":"معامله‌ای در انتظار نیست.","pool":"موجودی استخر: {pool} GRM\\nبرای تنظیم: /pool مقدار","missing":"بخش پیدا نشد.","menu":"پنل مدیریت GRM Mining\\n{menu}","only":"این بخش فقط برای مدیر است.","action_withdraw":"اقدام برای درخواست:","action_trade":"اقدام برای معامله:"},
+"ru":{"users":"Зарегистрированные пользователи: {total}\\nПодтверждённые активации: {active}","tasks":"Задания (последние 20):\\n{items}\\n\\nДобавить: /addtask название EN | название FA | название RU | описание EN | описание FA | описание RU | награда","tasks_empty":"Заданий пока нет.","lotteries":"Лотереи:\\n{items}\\n\\nСоздать: /lottery_create 1000\\nРозыгрыш: /lottery_draw ID","lotteries_empty":"Лотерей пока нет.","withdrawals":"Ожидающие выводы:\\n{items}","withdrawals_empty":"Нет ожидающих заявок.","trades":"Ожидающие сделки:\\n{items}","trades_empty":"Ожидающих сделок нет.","pool":"Остаток пула: {pool} GRM\\nИзменить: /pool СУММА","missing":"Раздел не найден.","menu":"Панель администратора GRM Mining\\n{menu}","only":"Только для администратора.","action_withdraw":"Действия по заявке:","action_trade":"Действия по сделке:"}}
+def admin_msg(lang,key,**kwargs):
+    return ADMIN_MESSAGES.get(lang,ADMIN_MESSAGES["en"])[key].format(**kwargs)
+def admin_panel_keyboard(lang="en"):
+    x=ADMIN_LABELS.get(lang,ADMIN_LABELS["en"])
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👥 کاربران", callback_data="panel:users"),
-         InlineKeyboardButton(text="📋 وظایف", callback_data="panel:tasks")],
-        [InlineKeyboardButton(text="🎟 قرعه‌کشی", callback_data="panel:lotteries"),
-         InlineKeyboardButton(text="💸 برداشت‌ها", callback_data="panel:withdrawals")],
-        [InlineKeyboardButton(text="🤝 معاملات", callback_data="panel:trades"),
-         InlineKeyboardButton(text="⛏ استخر استخراج", callback_data="panel:pool")],
-    ])
-
+        [InlineKeyboardButton(text="👥 "+x[0],callback_data="panel:users"),InlineKeyboardButton(text="📋 "+x[1],callback_data="panel:tasks")],
+        [InlineKeyboardButton(text="🎟 "+x[2],callback_data="panel:lotteries"),InlineKeyboardButton(text="💸 "+x[3],callback_data="panel:withdrawals")],
+        [InlineKeyboardButton(text="🤝 "+x[4],callback_data="panel:trades"),InlineKeyboardButton(text="⛏ "+x[5],callback_data="panel:pool")]])
 @dp.message(Command("admin"))
-async def admin_panel(m: Message):
+async def admin_panel(m:Message):
+    lang=get_user_lang(m.from_user.id)
     if not is_admin(m):
-        await m.answer("این بخش فقط برای مدیر است.")
-        return
-    await m.answer("⚙️ پنل مدیریت GRM Mining\nیک بخش را انتخاب کنید:", reply_markup=admin_panel_keyboard())
-
+        await m.answer(admin_msg(lang,"only")); return
+    await m.answer(admin_msg(lang,"menu",menu=ADMIN_LABELS[lang][6]),reply_markup=admin_panel_keyboard(lang))
 @dp.callback_query(F.data.startswith("panel:"))
-async def admin_panel_sections(q: CallbackQuery):
-    if not q.from_user or q.from_user.id != ADMIN_ID:
-        await q.answer("دسترسی فقط برای مدیر مجاز است.", show_alert=True)
-        return
-    section = q.data.split(":", 1)[1]
+async def admin_panel_sections(q:CallbackQuery):
+    if not q.from_user or q.from_user.id!=ADMIN_ID:
+        await q.answer("Administrator only.",show_alert=True); return
+    lang=get_user_lang(q.from_user.id); section=q.data.split(":",1)[1]
     with db() as c:
-        if section == "users":
-            total = c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
-            active = c.execute("SELECT COUNT(*) FROM users WHERE withdraw_after IS NOT NULL").fetchone()[0]
-            text = f"👥 کاربران ثبت‌شده: {total}\nفعال‌سازی تأییدشده: {active}"
-        elif section == "tasks":
-            rows = c.execute("SELECT id,title,reward,active FROM tasks ORDER BY id DESC LIMIT 20").fetchall()
-            text = "📋 وظایف (۲۰ مورد آخر):\n" + ("\n".join([f"#{i} {title} — {reward} GRM | {'فعال' if a else 'غیرفعال'}" for i,title,reward,a in rows]) or "هنوز وظیفه‌ای ثبت نشده است.")
-            text += "\n\nافزودن: /addtask عنوان 25"
-        elif section == "lotteries":
-            rows = c.execute("SELECT id,prize,status,winner_id FROM lotteries ORDER BY id DESC LIMIT 20").fetchall()
-            text = "🎟 قرعه‌کشی‌ها:\n" + ("\n".join([f"#{i} جایزه {p} GRM | {st} | برنده: {w or 'ندارد'}" for i,p,st,w in rows]) or "قرعه‌کشی‌ای ثبت نشده است.")
-            text += "\n\nایجاد: /lottery_create 1000\nانتخاب برنده: /lottery_draw شماره"
-        elif section == "withdrawals":
-            rows = c.execute("SELECT id,user_id,amount,net,wallet FROM withdrawals WHERE status='pending' ORDER BY id").fetchall()
-            text = "💸 درخواست‌های برداشت در انتظار:\n" + ("\n".join([f"#{i} | کاربر {u} | مبلغ {a} | خالص {n} GRM | {w}" for i,u,a,n,w in rows]) or "درخواستی در انتظار نیست.")
-            buttons = [[InlineKeyboardButton(text=f"رد #{i} ↩️", callback_data=f"wd:reject:{i}"),
-                        InlineKeyboardButton(text=f"تأیید #{i} ✓", callback_data=f"wd:approve:{i}")]
-                       + ([InlineKeyboardButton(text=f"📋 کپی والت #{i}", copy_text=CopyTextButton(text=w))] if w else [])
-                       for i,_,_,_,w in rows[:10]]
-            if buttons:
-                await q.message.answer("اقدام برای درخواست:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-        elif section == "trades":
-            rows = c.execute("SELECT id,user_id,details FROM trades WHERE status='pending' ORDER BY id").fetchall()
-            text = "🤝 معاملات در انتظار:\n" + ("\n".join([f"#{i} | کاربر {u}: {d}" for i,u,d in rows]) or "معامله‌ای در انتظار نیست.")
-            buttons = [[InlineKeyboardButton(text=f"رد #{i} ✕", callback_data=f"tr:reject:{i}"),
-                        InlineKeyboardButton(text=f"تأیید #{i} ✓", callback_data=f"tr:approve:{i}")] for i,_,_ in rows[:10]]
-            if buttons:
-                await q.message.answer("اقدام برای معامله:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
-        elif section == "pool":
-            pool = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
-            text = f"⛏ موجودی استخر: {pool[0] if pool else POOL_START} GRM\nبرای تنظیم: /pool مقدار"
-        else:
-            text = "بخش پیدا نشد."
-    await q.message.answer(text, reply_markup=admin_panel_keyboard())
-    await q.answer()
+        if section=="users":
+            total=c.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+            active=c.execute("SELECT COUNT(*) FROM users WHERE withdraw_after IS NOT NULL").fetchone()[0]
+            text=admin_msg(lang,"users",total=total,active=active)
+        elif section=="tasks":
+            rows=c.execute("SELECT id,title,reward,title_en,title_fa,title_ru,desc_en,desc_fa,desc_ru,active FROM tasks ORDER BY id DESC LIMIT 20").fetchall()
+            items="\\n\\n".join([localized_task_text(row[:9],lang)+(" | Active" if row[9] else " | Inactive") if lang=="en" else localized_task_text(row[:9],lang)+(" | فعال" if row[9] else " | غیرفعال") if lang=="fa" else localized_task_text(row[:9],lang)+(" | Активно" if row[9] else " | Неактивно") for row in rows]) or ADMIN_MESSAGES[lang]["tasks_empty"]
+            text=admin_msg(lang,"tasks",items=items)
+        elif section=="lotteries":
+            rows=c.execute("SELECT id,prize,status,winner_id FROM lotteries ORDER BY id DESC LIMIT 20").fetchall()
+            items="\\n".join([f"#{i} | {p} GRM | {st} | winner: {w or '-'}" for i,p,st,w in rows]) or ADMIN_MESSAGES[lang]["lotteries_empty"]
+            text=admin_msg(lang,"lotteries",items=items)
+        elif section=="withdrawals":
+            rows=c.execute("SELECT id,user_id,amount,net,wallet FROM withdrawals WHERE status='pending' ORDER BY id").fetchall()
+            items="\\n".join([f"#{i} | user {u} | gross {a} | net {n} GRM | {w}" for i,u,a,n,w in rows]) or ADMIN_MESSAGES[lang]["withdrawals_empty"]
+            text=admin_msg(lang,"withdrawals",items=items)
+            buttons=[[InlineKeyboardButton(text=(f"Reject #{i}" if lang=="en" else f"رد #{i}" if lang=="fa" else f"Отклонить #{i}"),callback_data=f"wd:reject:{i}"),InlineKeyboardButton(text=(f"Approve #{i}" if lang=="en" else f"تأیید #{i}" if lang=="fa" else f"Одобрить #{i}"),callback_data=f"wd:approve:{i}")]+([InlineKeyboardButton(text=f"📋 {w}",copy_text=CopyTextButton(text=w))] if w else []) for i,_,_,_,w in rows[:10]]
+            if buttons: await q.message.answer(admin_msg(lang,"action_withdraw"),reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        elif section=="trades":
+            rows=c.execute("SELECT id,user_id,details FROM trades WHERE status='pending' ORDER BY id").fetchall()
+            items="\\n".join([f"#{i} | user {u}: {d}" for i,u,d in rows]) or ADMIN_MESSAGES[lang]["trades_empty"]
+            text=admin_msg(lang,"trades",items=items)
+            buttons=[[InlineKeyboardButton(text=(f"Reject #{i}" if lang=="en" else f"رد #{i}" if lang=="fa" else f"Отклонить #{i}"),callback_data=f"tr:reject:{i}"),InlineKeyboardButton(text=(f"Approve #{i}" if lang=="en" else f"تأیید #{i}" if lang=="fa" else f"Одобрить #{i}"),callback_data=f"tr:approve:{i}")] for i,_,_ in rows[:10]]
+            if buttons: await q.message.answer(admin_msg(lang,"action_trade"),reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
+        elif section=="pool":
+            pool=c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+            text=admin_msg(lang,"pool",pool=pool[0] if pool else POOL_START)
+        else: text=admin_msg(lang,"missing")
+    await q.message.answer(text,reply_markup=admin_panel_keyboard(lang)); await q.answer()
 
 @dp.callback_query(F.data.startswith("wd:"))
 async def admin_withdraw_action(q: CallbackQuery):
@@ -365,7 +360,7 @@ async def admin_withdraw_action(q: CallbackQuery):
             c.execute("UPDATE withdrawals SET status='rejected' WHERE id=? AND status='pending'", (req_id,))
             pool_change(c, row[1])
             result = f"درخواست #{req_id} رد شد و {row[1]} GRM به استخر برگشت."
-    await q.message.answer(result, reply_markup=admin_panel_keyboard())
+    await q.message.answer(result, reply_markup=admin_panel_keyboard(get_user_lang(q.from_user.id)))
     await q.answer("انجام شد.")
 
 @dp.callback_query(F.data.startswith("tr:"))
@@ -394,7 +389,7 @@ async def start(m: Message):
     }
     await m.answer(
         welcome[lang] + ("\n/admin — admin panel" if is_admin(m) else ""),
-        reply_markup=admin_panel_keyboard() if is_admin(m) else user_menu_keyboard(lang)
+        reply_markup=admin_panel_keyboard(lang) if is_admin(m) else user_menu_keyboard(lang)
     )
 
 @dp.message(Command("balance"))
