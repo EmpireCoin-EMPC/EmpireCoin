@@ -13,19 +13,15 @@ GRM Mining is a Telegram-based rewards project. Users may earn GRM rewards throu
 
 The 172,000,000 GRM figure describes the allocation reserved for mining and rewards in the bot. It must not be interpreted as the total token supply.
 
-## 2. Contract and company activation wallet
+## 2. Contract information
 
-**GRM contract address supplied by the project operator:**
-
-`0:b8ef4f77a17e5785bd31ba4da50abd91852f2b8febee97ad6ee16d941f939198`
-
-This document reproduces the address supplied by the project operator. It does not claim that the contract has been independently audited or verified.
+The official GRM contract address is currently under verification and is intentionally not published here. It will be added after the project team confirms the correct address.
 
 **Company wallet for the activation payment:**
 
 `UQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT`
 
-The contract address and company activation wallet serve different purposes. Users should not confuse them.
+The company activation wallet is not the GRM token contract address. Users should not confuse the two.
 
 ## 3. Mandatory account activation
 
