@@ -35,7 +35,8 @@ def init_db():
             wallet TEXT, last_mine TEXT, activation_tx TEXT, activation_at TEXT,
             withdraw_after TEXT, lang TEXT DEFAULT 'en',
             referred_by INTEGER, referral_rewarded INTEGER DEFAULT 0,
-            checkin_day INTEGER DEFAULT 0, last_checkin_date TEXT)""")
+            checkin_day INTEGER DEFAULT 0, last_checkin_date TEXT,
+            first_name TEXT, last_name TEXT, first_seen TEXT, last_seen TEXT)""")
         c.execute("""CREATE TABLE IF NOT EXISTS balance_history(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
@@ -85,7 +86,9 @@ def init_db():
         if "lang" not in cols:
             c.execute("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'en'")
         for col, definition in (("referred_by", "INTEGER"), ("referral_rewarded", "INTEGER DEFAULT 0"),
-                                ("checkin_day", "INTEGER DEFAULT 0"), ("last_checkin_date", "TEXT")):
+                                ("checkin_day", "INTEGER DEFAULT 0"), ("last_checkin_date", "TEXT"),
+                                ("first_name", "TEXT"), ("last_name", "TEXT"),
+                                ("first_seen", "TEXT"), ("last_seen", "TEXT")):
             if col not in cols:
                 c.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
         c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('pool',?)", (str(POOL_START),))
@@ -166,9 +169,19 @@ async def daily_checkin(user_id: int, lang: str) -> str:
     return messages[lang]
 
 def user_upsert(m: Message):
+    if not m.from_user:
+        return
+    stamp = now().isoformat()
     with db() as c:
-        c.execute("INSERT INTO users(user_id,username) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
-                  (m.from_user.id, m.from_user.username or ""))
+        c.execute(
+            """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen)
+               VALUES(?,?,?,?,?,?)
+               ON CONFLICT(user_id) DO UPDATE SET
+               username=excluded.username, first_name=excluded.first_name,
+               last_name=excluded.last_name, last_seen=excluded.last_seen""",
+            (m.from_user.id, m.from_user.username or "", m.from_user.first_name or "",
+             m.from_user.last_name or "", stamp, stamp)
+        )
 
 def log_balance(c, user_id, change_amount, reason, reference=None):
     c.execute(
@@ -258,10 +271,17 @@ def localized_task_text(row, lang):
     result = f"#{row[0]} {title} — {row[2]} GRM"
     return result + (f"\n{description}" if description else "")
 
-def user_upsert_from_id(user_id: int, username: str):
+def user_upsert_from_id(user_id: int, username: str, first_name: str = "", last_name: str = ""):
+    stamp = now().isoformat()
     with db() as c:
-        c.execute("INSERT INTO users(user_id,username) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET username=excluded.username",
-                  (user_id, username))
+        c.execute(
+            """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen)
+               VALUES(?,?,?,?,?,?)
+               ON CONFLICT(user_id) DO UPDATE SET
+               username=excluded.username, first_name=excluded.first_name,
+               last_name=excluded.last_name, last_seen=excluded.last_seen""",
+            (user_id, username, first_name, last_name, stamp, stamp)
+        )
 
 @dp.callback_query(F.data.startswith("lang:"))
 async def choose_language(q: CallbackQuery):
@@ -272,7 +292,7 @@ async def choose_language(q: CallbackQuery):
     if lang not in ("en", "fa", "ru"):
         await q.answer("Invalid language", show_alert=True)
         return
-    user_upsert_from_id(q.from_user.id, q.from_user.username or "")
+    user_upsert_from_id(q.from_user.id, q.from_user.username or "", q.from_user.first_name or "", q.from_user.last_name or "")
     with db() as c:
         c.execute("UPDATE users SET lang=? WHERE user_id=?", (lang, q.from_user.id))
     welcome = {
@@ -374,7 +394,7 @@ async def user_menu_actions(q: CallbackQuery):
         return
     uid = q.from_user.id
     action = q.data.split(":", 1)[1]
-    user_upsert_from_id(uid, q.from_user.username or "")
+    user_upsert_from_id(uid, q.from_user.username or "", q.from_user.first_name or "", q.from_user.last_name or "")
     lang = get_user_lang(uid)
     if action == "language":
         prompts = {"en": "Choose your language:", "fa": "زبان خود را انتخاب کنید:", "ru": "Выберите язык:"}
@@ -1071,6 +1091,49 @@ async def edittask(m: Message):
         await m.answer("وظیفه فعال با این شناسه پیدا نشد. ابتدا /tasks_admin را بررسی کنید.")
 
 
+
+@dp.message(Command("users"))
+async def admin_users_list(m: Message):
+    if not is_admin(m):
+        return
+    parts = (m.text or "").split()
+    mode = parts[1].lower() if len(parts) > 1 else "all"
+    page = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1
+    if mode not in ("all", "new", "active", "inactive") or page < 1:
+        await m.answer("روش استفاده: /users [all|new|active|inactive] [صفحه]\nنمونه: /users active 1")
+        return
+    page_size = 20
+    cutoff = (now() - timedelta(days=30)).isoformat()
+    conditions = {
+        "all": ("1=1", ()),
+        "new": ("first_seen >= ?", (cutoff,)),
+        "active": ("last_seen >= ?", (cutoff,)),
+        "inactive": ("(last_seen IS NULL OR last_seen < ?)", (cutoff,))
+    }
+    where, params = conditions[mode]
+    with db() as c:
+        total = c.execute(f"SELECT COUNT(*) FROM users WHERE {where}", params).fetchone()[0]
+        rows = c.execute(
+            f"""SELECT user_id,username,first_name,last_name,first_seen,last_seen,activation_at
+                FROM users WHERE {where} ORDER BY COALESCE(last_seen,first_seen) DESC, user_id DESC
+                LIMIT ? OFFSET ?""",
+            (*params, page_size, (page - 1) * page_size)
+        ).fetchall()
+    if not rows and page == 1:
+        await m.answer("در این فهرست هنوز کاربری ثبت نشده است.")
+        return
+    labels = {"all":"همه کاربران","new":"کاربران جدید در ۳۰ روز اخیر",
+              "active":"کاربران فعال در ۳۰ روز اخیر","inactive":"کاربران غیرفعال/بدون فعالیت ثبت‌شده"}
+    lines = [f"👥 {labels[mode]} | مجموع: {total} | صفحه {page}",
+             "برای صفحه بعد: /users " + mode + f" {page + 1}", ""]
+    for uid, username, first_name, last_name, first_seen, last_seen, activated in rows:
+        full_name = " ".join(x for x in (first_name, last_name) if x) or "نام ثبت نشده"
+        handle = f"@{username}" if username else "بدون یوزرنیم"
+        seen = last_seen or "فعالیت قبلی ثبت نشده"
+        status = "فعال‌سازی‌شده" if activated else "فعال‌سازی‌نشده"
+        lines.append(f"{full_name}\n{handle} | ID: {uid}\nآخرین فعالیت: {seen}\nوضعیت: {status}\n/user_info {uid}")
+    await m.answer("\n".join(lines)[:4000])
+
 @dp.message(Command("report"))
 async def report(m: Message):
     if not is_admin(m):
@@ -1144,17 +1207,20 @@ async def user_info(m: Message):
     uid = int(parts[1])
     with db() as c:
         row = c.execute(
-            "SELECT username,balance,wallet,lang,activation_tx,activation_at,withdraw_after,last_mine FROM users WHERE user_id=?",
+            "SELECT username,balance,wallet,lang,activation_tx,activation_at,withdraw_after,last_mine,first_name,last_name,first_seen,last_seen FROM users WHERE user_id=?",
             (uid,)
         ).fetchone()
     if not row:
         await m.answer("کاربری با این شناسه پیدا نشد.")
         return
-    username, balance, wallet, lang, activation_tx, activation_at, withdraw_after, last_mine = row
+    username, balance, wallet, lang, activation_tx, activation_at, withdraw_after, last_mine, first_name, last_name, first_seen, last_seen = row
     lang_name = {"en": "English", "fa": "فارسی", "ru": "Русский"}.get(lang, "English")
     await m.answer(
         f"اطلاعات کاربر {uid}\\n"
+        f"نام: {' '.join(x for x in (first_name, last_name) if x) or 'ثبت نشده'}\\n"
         f"نام کاربری: @{username or 'ندارد'}\\n"
+        f"اولین ورود: {first_seen or 'در نسخه قبلی ثبت نشده'}\\n"
+        f"آخرین فعالیت: {last_seen or 'در نسخه قبلی ثبت نشده'}\\n"
         f"موجودی: {balance} GRM\\n"
         f"کیف پول: {wallet or 'ثبت نشده'}\\n"
         f"زبان: {lang_name}\\n"
@@ -1317,6 +1383,7 @@ async def main():
         BotCommand(command="lottery_draw", description="Draw lottery winner"),
         BotCommand(command="sendmsg", description="Send a private message to selected users"),
         BotCommand(command="report", description="View bot statistics report"),
+        BotCommand(command="users", description="List users: all/new/active/inactive"),
         BotCommand(command="user_info", description="View a user's account details"),
         BotCommand(command="history", description="View a user balance history"),
         BotCommand(command="referrals", description="View referral records"),
