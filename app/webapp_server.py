@@ -58,11 +58,25 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     async def index(request):
         return web.FileResponse(WEB_DIR / "index.html")
 
+    def _touch_user(tg):
+        stamp = datetime.now(timezone.utc).isoformat()
+        with _db(app["db_path"]) as c:
+            c.execute(
+                """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen)
+                   VALUES(?,?,?,?,?,?)
+                   ON CONFLICT(user_id) DO UPDATE SET
+                   username=excluded.username, first_name=excluded.first_name,
+                   last_name=excluded.last_name, last_seen=excluded.last_seen""",
+                (int(tg["id"]), tg.get("username", ""), tg.get("first_name", ""),
+                 tg.get("last_name", ""), stamp, stamp)
+            )
+
     async def health(request):
         return web.json_response({"ok": True, "service": "grm-mini-app"})
 
     async def dashboard(request):
         tg = _telegram_user(request, app["bot_token"])
+        _touch_user(tg)
         uid = int(tg["id"])
         with _db(app["db_path"]) as c:
             row = c.execute(
@@ -119,7 +133,9 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         })
 
     def _user(request):
-        return _telegram_user(request, app["bot_token"])
+        tg = _telegram_user(request, app["bot_token"])
+        _touch_user(tg)
+        return tg
 
     async def checkin(request):
         tg = _user(request)
