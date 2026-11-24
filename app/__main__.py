@@ -577,9 +577,9 @@ async def start(m: Message):
                 c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL AND activation_at IS NULL",
                           (inviter, m.from_user.id))
     prompts = {
-        "en": "Welcome to GRM Mining!\\nPlease choose your language to continue.\\n\\n📘 Before getting started, please watch our simple bot tutorial using the button below.",
-        "fa": "به ربات GRM Mining خوش آمدید!\\nبرای ادامه، زبان خود را انتخاب کنید.\\n\\n📘 لطفاً پیش از شروع فعالیت، حتماً آموزش ساده ربات را از دکمه زیر ببینید.",
-        "ru": "Добро пожаловать в GRM Mining!\\nВыберите язык, чтобы продолжить.\\n\\n📘 Перед началом работы обязательно посмотрите краткую инструкцию по боту, нажав кнопку ниже."
+        "en": "Welcome to GRM Mining!\nPlease choose your language to continue.\n\n📘 Before getting started, please watch our simple bot tutorial using the button below.",
+        "fa": "به ربات GRM Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید.\n\n📘 لطفاً پیش از شروع فعالیت، حتماً آموزش ساده ربات را از دکمه زیر ببینید.",
+        "ru": "Добро пожаловать в GRM Mining!\nВыберите язык, чтобы продолжить.\n\n📘 Перед началом работы обязательно посмотрите краткую инструкцию по боту, нажав кнопку ниже."
     }
     await m.answer(prompts.get(get_user_lang(m.from_user.id), "en"), reply_markup=language_keyboard())
 
