@@ -123,7 +123,8 @@ def activation_keyboard(lang):
     activate_label, info_label = labels.get(lang, labels["en"])
     rows = [
         [InlineKeyboardButton(text=activate_label, callback_data="user:activate")],
-        [InlineKeyboardButton(text=info_label, callback_data="user:info")]
+        [InlineKeyboardButton(text=info_label, callback_data="user:info")],
+        [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")]
     ]
     if WEBAPP_URL:
         rows.append([InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
@@ -225,6 +226,7 @@ def language_keyboard():
         [InlineKeyboardButton(text="🇮🇷 فارسی", callback_data="lang:fa")],
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
         [InlineKeyboardButton(text="📘 آموزش ربات | Bot tutorial | Инструкция", url="https://t.me/grm_reward_official/65")],
+        [InlineKeyboardButton(text="🆘 پشتیبانی | Support | Поддержка", url="https://t.me/+R2xCVMxYrlg0Zjk1")],
     ])
 
 MENU_LABELS = {
@@ -243,6 +245,7 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text=a[9], callback_data="user:checkin"), InlineKeyboardButton(text=a[10], callback_data="user:referral")],
         [InlineKeyboardButton(text=a[11], callback_data="user:info")],
         [InlineKeyboardButton(text=a[8], callback_data="user:language")],
+        [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")],
     ]
     if WEBAPP_URL:
         rows.append([InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
