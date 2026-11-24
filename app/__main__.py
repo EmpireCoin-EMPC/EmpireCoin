@@ -178,8 +178,7 @@ def user_upsert(m: Message):
                VALUES(?,?,?,?,?,?)
                ON CONFLICT(user_id) DO UPDATE SET
                username=excluded.username, first_name=excluded.first_name,
-               last_name=excluded.last_name, first_seen=COALESCE(users.first_seen,excluded.first_seen),
-               last_seen=excluded.last_seen""",
+               last_name=excluded.last_name, last_seen=excluded.last_seen""",
             (m.from_user.id, m.from_user.username or "", m.from_user.first_name or "",
              m.from_user.last_name or "", stamp, stamp)
         )
@@ -280,8 +279,7 @@ def user_upsert_from_id(user_id: int, username: str, first_name: str = "", last_
                VALUES(?,?,?,?,?,?)
                ON CONFLICT(user_id) DO UPDATE SET
                username=excluded.username, first_name=excluded.first_name,
-               last_name=excluded.last_name, first_seen=COALESCE(users.first_seen,excluded.first_seen),
-               last_seen=excluded.last_seen""",
+               last_name=excluded.last_name, last_seen=excluded.last_seen""",
             (user_id, username, first_name, last_name, stamp, stamp)
         )
 
