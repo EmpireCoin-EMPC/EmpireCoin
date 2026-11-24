@@ -66,8 +66,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                    VALUES(?,?,?,?,?,?)
                    ON CONFLICT(user_id) DO UPDATE SET
                    username=excluded.username, first_name=excluded.first_name,
-                   last_name=excluded.last_name, first_seen=COALESCE(users.first_seen,excluded.first_seen),
-                   last_seen=excluded.last_seen""",
+                   last_name=excluded.last_name, last_seen=excluded.last_seen""",
                 (int(tg["id"]), tg.get("username", ""), tg.get("first_name", ""),
                  tg.get("last_name", ""), stamp, stamp)
             )
