@@ -561,6 +561,7 @@ async def admin_withdraw_action(q: CallbackQuery):
         return
     req_id = int(raw_id)
     with db() as c:
+        c.execute("BEGIN IMMEDIATE")
         row = c.execute("SELECT user_id,amount,net,status FROM withdrawals WHERE id=?", (req_id,)).fetchone()
         if not row or row[3] != "pending":
             await q.answer("این درخواست دیگر در انتظار نیست.", show_alert=True)
@@ -570,8 +571,12 @@ async def admin_withdraw_action(q: CallbackQuery):
             result = f"درخواست #{req_id} تأیید شد. مبلغ خالص {row[2]} EMPC را دستی پرداخت کنید و سپس /paid {req_id} TX_HASH را بزنید."
         else:
             c.execute("UPDATE withdrawals SET status='rejected' WHERE id=? AND status='pending'", (req_id,))
-            pool_change(c, row[1])
-            result = f"درخواست #{req_id} رد شد و {row[1]} EMPC به استخر برگشت."
+            if c.execute("SELECT changes()").fetchone()[0] != 1:
+                await q.answer("درخواست قبلاً پردازش شده است.", show_alert=True)
+                return
+            c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (row[1], row[0]))
+            log_balance(c, row[0], row[1], "withdrawal_refund", req_id)
+            result = f"درخواست #{req_id} رد شد و {row[1]} EMPC به موجودی کاربر برگشت."
     await q.message.answer(result, reply_markup=admin_panel_keyboard(get_user_lang(q.from_user.id)))
     await q.answer("انجام شد.")
 
@@ -932,15 +937,27 @@ async def approve(m: Message):
 
 @dp.message(Command("reject"))
 async def reject(m: Message):
-    if not is_admin(m): return
-    p=(m.text or "").split()
-    if len(p)!=2 or not p[1].isdigit(): await m.answer("روش استفاده: /reject REQUEST_ID"); return
+    if not is_admin(m):
+        return
+    p = (m.text or "").split()
+    if len(p) != 2 or not p[1].isdigit():
+        await m.answer("روش استفاده: /reject REQUEST_ID")
+        return
+    req_id = int(p[1])
     with db() as c:
-        r=c.execute("SELECT user_id,amount FROM withdrawals WHERE id=? AND status IN ('pending','approved')",(int(p[1]),)).fetchone()
-        if not r: await m.answer("درخواست پیدا نشد یا قبلاً نهایی شده است."); return
-        c.execute("UPDATE withdrawals SET status='rejected' WHERE id=?",(int(p[1]),))
-        pool_change(c,r[1])
-    await m.answer("درخواست رد شد و مبلغ به استخر استخراج برگشت.")
+        c.execute("BEGIN IMMEDIATE")
+        r = c.execute("SELECT user_id,amount,status FROM withdrawals WHERE id=? AND status IN ('pending','approved')", (req_id,)).fetchone()
+        if not r:
+            await m.answer("درخواست پیدا نشد یا قبلاً نهایی شده است.")
+            return
+        uid, amount, old_status = r
+        c.execute("UPDATE withdrawals SET status='rejected' WHERE id=? AND status IN ('pending','approved')", (req_id,))
+        if c.execute("SELECT changes()").fetchone()[0] != 1:
+            await m.answer("درخواست قبلاً پردازش شده است.")
+            return
+        c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (amount, uid))
+        log_balance(c, uid, amount, "withdrawal_refund", req_id)
+    await m.answer("درخواست رد شد و مبلغ به موجودی کاربر برگشت.")
 
 @dp.message(Command("paid"))
 async def paid(m: Message):
