@@ -1275,9 +1275,14 @@ async def reject_trade(m: Message):
 async def lottery_create(m: Message):
     if not is_admin(m): return
     p=(m.text or "").split()
-    if len(p)!=2 or not p[1].isdigit(): await m.answer("روش استفاده: /lottery_create PRIZE_EMPC"); return
+    if len(p)!=2 or not p[1].isdigit() or int(p[1])<=0:
+        await m.answer("روش استفاده: /lottery_create PRIZE_EMPC (عدد مثبت)"); return
     with db() as c:
-        pool=int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
+        c.execute("BEGIN IMMEDIATE")
+        pool_row=c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+        pool=int(pool_row[0]) if pool_row else 0
+        if pool<=0:
+            await m.answer("استخر پاداش خالی است."); return
         prize=min(int(p[1]),pool)
         cur=c.execute("INSERT INTO lotteries(prize) VALUES(?)",(prize,))
     await m.answer(f"قرعه‌کشی #{cur.lastrowid} با جایزه {prize} EMPC ایجاد شد.")
