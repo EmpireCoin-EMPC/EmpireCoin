@@ -92,7 +92,7 @@ def init_db():
             if col not in cols:
                 c.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
         c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('pool',?)", (str(POOL_START),))
-        # activation_at remains NULL until personal wallet is connected.
+        # Wallet connection is the activation criterion; clear legacy auto-activation for users without a wallet.\n        c.execute("UPDATE users SET activation_at=NULL WHERE wallet IS NULL OR wallet=''")
 
 def is_admin_user_id(user_id: int) -> bool:
     return bool(ADMIN_ID and user_id == ADMIN_ID)
