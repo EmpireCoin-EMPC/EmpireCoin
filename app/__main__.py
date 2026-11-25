@@ -679,6 +679,7 @@ async def withdraw(m: Message):
         await m.answer(activation_prompt(lang))
         return
     with db() as c:
+        c.execute("BEGIN IMMEDIATE")
         u = c.execute("SELECT balance,wallet,checkin_day FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
         if not u or not u[1]:
             await m.answer(uct(lang, "wallet_required"))
@@ -1241,9 +1242,13 @@ async def user_info(m: Message):
 async def pool(m: Message):
     if not is_admin(m): return
     p=(m.text or "").split()
-    with db() as c:
-        if len(p)==2 and p[1].isdigit(): c.execute("UPDATE settings SET value=? WHERE key='pool'",(p[1],))
-        val=c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
+    if len(p)==2 and p[1].isdigit():
+        with db() as c:
+            c.execute("UPDATE settings SET value=? WHERE key='pool'",(p[1],))
+            val=p[1]
+    else:
+        with db() as c:
+            val=c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
     await m.answer(f"استخر فعلی: {val} EMPC")
 
 @dp.message(Command("approve_trade"))
