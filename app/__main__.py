@@ -428,7 +428,7 @@ async def user_menu_actions(q: CallbackQuery):
         texts = {
             "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 100} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
             "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 100} EMPC. پاداش دعوت در دوره بازسازی موقتاً غیرفعال است.",
-            "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 500} EMPC. Реферальные награды временно отключены."
+            "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 100} EMPC (100 EMPC за приглашение; начисления временно отключены)."
         }
         await q.message.answer(texts[lang])
         await q.answer()
@@ -442,6 +442,7 @@ async def user_menu_actions(q: CallbackQuery):
     elif action == "mine":
         t = now()
         with db() as c:
+            c.execute("BEGIN IMMEDIATE")
             row = c.execute("SELECT last_mine FROM users WHERE user_id=?", (uid,)).fetchone()
             pool = int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
             if row[0] and t - datetime.fromisoformat(row[0]) < timedelta(hours=1):
@@ -604,7 +605,7 @@ async def start(m: Message):
         inviter = int(payload[1][3:])
         if inviter != m.from_user.id:
             with db() as c:
-                c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL AND activation_at IS NULL",
+                c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL",
                           (inviter, m.from_user.id))
     prompts = {
         "en": "Welcome to EMPC Mining!\nPlease choose your language to continue.\n\n📘 Before getting started, please watch our simple bot tutorial using the button below.",
