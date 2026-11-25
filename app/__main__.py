@@ -817,9 +817,9 @@ async def task_approve(m: Message):
             c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=? AND status='pending'", (now().isoformat(), sid))
             await m.answer("This user already received this task reward. Submission marked rejected.")
             return
-        reward = min(int(requested_reward), pool)
-        if reward <= 0:
-            await m.answer("Mining pool is empty; submission remains pending.")
+        reward = int(requested_reward)
+        if reward <= 0 or pool < reward:
+            await m.answer(f"Pool cannot cover the full task reward ({reward} EMPC). Available: {pool} EMPC; submission remains pending.")
             return
         cur = c.execute("UPDATE task_submissions SET status='approved',reviewed_at=? WHERE id=? AND status='pending'", (now().isoformat(), sid))
         if cur.rowcount != 1:
