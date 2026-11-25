@@ -120,7 +120,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         return web.json_response({
             "user": {"id": uid, "name": tg.get("first_name", row[0] or "User"), "username": tg.get("username", "")},
             "balance": int(row[1] or 0), "pool": pool, "wallet": row[2] or "",
-            "activated": bool(row[2]) and bool(row[3]), "activation_pending": bool(row[8]) and not (bool(row[2]) and bool(row[3]),
+            "activated": bool(row[2]) and bool(row[3]), "activation_pending": bool(row[8]) and not (bool(row[2]) and bool(row[3])),
             "checkin_day": int(row[4] or 0), "last_checkin_date": row[5],
             "checkin_done_today": row[5] == now.date().isoformat(),
             "mine_ready": mine_ready, "mine_seconds_left": max(0, int(3600 - (now-last_mine).total_seconds())) if last_mine else 0,
