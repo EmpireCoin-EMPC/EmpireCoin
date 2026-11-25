@@ -699,7 +699,16 @@ async def withdraw(m: Message):
         req_id = cur.lastrowid
     await m.answer(uct(lang, "withdraw_created", id=req_id, amount=amount, percent=FEE_PERCENT, fee=fee, net=net))
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\nUser: {m.from_user.id}\nGross: {amount}\nNet: {net}\nWallet: {u[1]}\nReview: /pending")
+        try:
+            await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\nUser: {m.from_user.id}\nGross: {amount}\nNet: {net}\nWallet: {u[1]}\nReview: /pending")
+        except Exception:
+            with db() as c:
+                c.execute("BEGIN IMMEDIATE")
+                cur = c.execute("UPDATE withdrawals SET status='rejected',reviewed_at=? WHERE id=? AND status='pending'", (now().isoformat(), req_id))
+                if cur.rowcount:
+                    c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (amount, m.from_user.id))
+                    log_balance(c, m.from_user.id, amount, "withdrawal_notification_failed_refund", req_id)
+            await m.answer("Admin notification failed. The withdrawal was reversed and your balance restored.")
 
 @dp.message(Command("tasks"))
 async def tasks(m: Message):
