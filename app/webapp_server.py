@@ -328,6 +328,10 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                 await admin_bot.session.close()
         except Exception as exc:
             print(f"[webapp] Could not notify admin about task submission #{submission_id}: {exc}")
+            with _db(app["db_path"]) as c:
+                c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=? AND status='pending'",
+                          (datetime.now(timezone.utc).isoformat(), submission_id))
+            raise web.HTTPServiceUnavailable(text="Submission could not be delivered to the administrator. Please try again.") from exc
         return web.json_response({"ok": True, "submission_id": submission_id, "reward": int(task[0]), "status": "pending"})
 
     async def save_language(request):
