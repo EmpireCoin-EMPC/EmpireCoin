@@ -27,7 +27,10 @@ def _telegram_user(request, bot_token):
         raise web.HTTPUnauthorized(text="Telegram authorization is required")
     init_data = raw[7:]
     try:
-        pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
+        parsed = parse_qsl(init_data, keep_blank_values=True, strict_parsing=True)
+        if len(parsed) != len({k for k, _ in parsed}):
+            raise ValueError("duplicate init-data keys")
+        pairs = dict(parsed)
         received_hash = pairs.pop("hash")
         auth_date = int(pairs["auth_date"])
         user = json.loads(pairs["user"])
