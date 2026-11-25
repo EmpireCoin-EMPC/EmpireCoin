@@ -734,6 +734,7 @@ async def claim(m: Message):
     media_file_id = m.photo[-1].file_id if is_photo else None
     media_type = "photo" if is_photo else None
     with db() as c:
+        c.execute("BEGIN IMMEDIATE")
         task = c.execute("SELECT reward FROM tasks WHERE id=? AND active=1", (tid,)).fetchone()
         if not task:
             await m.answer(uct(lang, "task_missing"))
