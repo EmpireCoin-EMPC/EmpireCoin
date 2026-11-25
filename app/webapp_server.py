@@ -127,8 +127,8 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             "referral": {
                 "link": f"https://t.me/GRM_Mining_Reward_Bot?start=ref{uid}",
                 "total": referral_total, "activated": referral_activated,
-                "pending": referral_pending, "earned": referral_activated * 100,
-                "reward_per_activation": 100
+                "pending": referral_pending, "earned": 0,
+                "reward_per_activation": 0
             }
         })
 
@@ -237,6 +237,16 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                 await admin_bot.session.close()
         except Exception as exc:
             print(f"[webapp] Could not notify admin about withdrawal #{request_id}: {exc}")
+            # Roll back the debit and mark the request rejected if notification failed.
+            with _db(app["db_path"]) as c:
+                c.execute("BEGIN IMMEDIATE")
+                cur = c.execute("UPDATE withdrawals SET status='rejected',reviewed_at=? WHERE id=? AND status='pending'",
+                                (datetime.now(timezone.utc).isoformat(), request_id))
+                if cur.rowcount:
+                    c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (amount, uid))
+                    c.execute("INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+                              (uid, amount, "withdrawal_notification_failed_refund", str(request_id), datetime.now(timezone.utc).isoformat()))
+            raise web.HTTPServiceUnavailable(text="Your request could not be delivered to the administrator. The debit has been reversed; please try again.") from exc
         return web.json_response({"ok": True, "request_id": request_id, "amount": amount, "fee": fee, "net": net})
 
     async def save_wallet(request):
