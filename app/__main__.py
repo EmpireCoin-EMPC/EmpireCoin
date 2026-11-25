@@ -845,11 +845,15 @@ async def task_reject(m: Message):
         return
     sid = int(parts[1])
     with db() as c:
+        c.execute("BEGIN IMMEDIATE")
         row = c.execute("SELECT user_id,task_id,status FROM task_submissions WHERE id=?", (sid,)).fetchone()
         if not row or row[2] != "pending":
             await m.answer("Pending submission not found or already reviewed.")
             return
-        c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=?", (now().isoformat(), sid))
+        cur = c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=? AND status='pending'", (now().isoformat(), sid))
+        if cur.rowcount != 1:
+            await m.answer("Submission was already processed.")
+            return
         user_row = c.execute("SELECT lang FROM users WHERE user_id=?", (row[0],)).fetchone()
     await m.answer(f"Submission #{sid} rejected.")
     lang = user_row[0] if user_row and user_row[0] in ("en","fa","ru") else "en"
