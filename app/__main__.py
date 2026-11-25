@@ -111,11 +111,7 @@ def is_user_activated(user_id: int) -> bool:
     return bool(row and row[0])
 
 def activation_prompt(lang: str) -> str:
-    texts = {
-        "en": "Accounts are unlocked in the EmpireCoin test version. If this message appears, please contact the administrator.",
-        "fa": "در نسخه آزمایشی EmpireCoin حساب‌ها بدون پرداخت فعال هستند. اگر این پیام نمایش داده شد، با مدیر تماس بگیرید.",
-        "ru": "В тестовой версии EmpireCoin аккаунты открыты без оплаты. Если появилось это сообщение, обратитесь к администратору."
-    }
+    texts = {"en": "Connect your TON wallet in the Mini App to activate your account.", "fa": "برای فعال‌سازی حساب، کیف پول TON خود را در مینی‌اپ متصل کنید.", "ru": "Подключите TON-кошелёк в Mini App для активации аккаунта."}
     return texts.get(lang, texts["en"])
 
 def activation_keyboard(lang):
@@ -323,7 +319,7 @@ USER_TEXT = {
   "wallet":"To save your wallet, send:\n/setwallet WALLET_ADDRESS",
   "withdraw":"To request a withdrawal, send:\n/withdraw AMOUNT\nWithdrawals are available 30 days after activation approval.",
   "trade":"To request a trade, send:\n/trade TRADE_DETAILS",
-  "activate":"Activation payments are disabled in the test version. Mining accounts are unlocked for testing.",
+  "activate":"Connect your TON wallet in the Mini App to activate your account.",
   "invalid":"Unknown option.", "copy_company":"📋 Copy company wallet", "copy_wallet":"📋 Copy my wallet"
  },
  "fa": {
@@ -336,7 +332,7 @@ USER_TEXT = {
   "wallet":"برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS",
   "withdraw":"برای درخواست برداشت بفرستید:\n/withdraw AMOUNT\nبرداشت ۳۰ روز پس از تأیید فعال‌سازی ممکن است.",
   "trade":"برای درخواست معامله بفرستید:\n/trade TRADE_DETAILS",
-  "activate":"پرداخت فعال‌سازی در نسخه آزمایشی غیرفعال است؛ حساب‌ها برای آزمایش باز هستند.",
+  "activate":"برای فعال‌سازی حساب، کیف پول TON خود را در مینی‌اپ متصل کنید.",
   "invalid":"گزینه نامعتبر است.", "copy_company":"📋 کپی آدرس کیف پول شرکت", "copy_wallet":"📋 کپی آدرس کیف پول من"
  },
  "ru": {
@@ -349,7 +345,7 @@ USER_TEXT = {
   "wallet":"Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS",
   "withdraw":"Чтобы запросить вывод, отправьте:\n/withdraw AMOUNT\nВывод доступен через 30 дней после подтверждения активации.",
   "trade":"Чтобы запросить сделку, отправьте:\n/trade TRADE_DETAILS",
-  "activate":"Платежи за активацию отключены в тестовой версии; аккаунты открыты для тестирования.",
+  "activate":"Подключите TON-кошелёк в Mini App для активации аккаунта.",
   "invalid":"Неизвестная команда.", "copy_company":"📋 Копировать кошелёк компании", "copy_wallet":"📋 Копировать мой кошелёк"
  }
 }
@@ -405,9 +401,9 @@ async def user_menu_actions(q: CallbackQuery):
         return
     if action == "info":
         info_texts = {
-            "en": "EMPC MINING — PROJECT INFORMATION\nToken: EMPC | Network: TON\n\n\n\nActivation payments are disabled in this test rebuild. Accounts are unlocked for testing.\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 EMPC and increases by 50 EMPC per successful check-in, reaching 1,500 EMPC on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 EMPC, 10% fee, 30 successful check-ins and admin review required.\nReferral rewards are temporarily disabled during this rebuild.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 EMPC allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
-            "fa": "اطلاعات پروژه EMPC MINING\nتوکن: EMPC | شبکه: TON\n\n\n\nپرداخت فعال‌سازی در نسخه آزمایشی بازسازی‌شده غیرفعال است. حساب‌ها برای آزمایش باز هستند.\n\nدیلی‌چک‌این: ۳۰ نوبت موفق لازم است. پاداش از ۵۰ EMPC شروع می‌شود و در هر نوبت موفق ۵۰ EMPC افزایش می‌یابد تا نوبت ۳۰ با ۱٬۵۰۰ EMPC. روزهای جاافتاده پیشرفت را متوقف می‌کنند؛ چک‌این بعدی از شماره بعدی ادامه می‌یابد.\n\nبرداشت: حداقل ۱۷٬۰۰۰ EMPC، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nپاداش دعوت دوستان در دوره بازسازی موقتاً غیرفعال است.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ EMPC مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
-            "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ EMPC MINING\nТокен: EMPC | Сеть: TON\n\n\n\nПлатежи за активацию отключены в тестовой версии. Аккаунты открыты для тестирования.\n\nЕжедневные отметки: необходимо 30 успешных отметок. Награда начинается с 50 EMPC и увеличивается на 50 EMPC за каждую успешную отметку, достигая 1 500 EMPC на отметке 30. Пропуск дня приостанавливает прогресс; следующая отметка продолжает последовательность.\n\nВывод: минимум 17 000 EMPC, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРеферальные награды временно отключены.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 EMPC — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
+            "en": "EMPC MINING — PROJECT INFORMATION\nToken: EMPC | Network: TON\n\nAccount activation requires connecting your personal TON wallet. No activation payment is required.\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 EMPC and increases by 50 EMPC per successful check-in, reaching 1,500 EMPC on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 EMPC, 10% fee, 30 successful check-ins and admin review required.\nReferral rewards are temporarily disabled during this rebuild.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 EMPC allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
+            "fa": "اطلاعات پروژه EMPC MINING\nتوکن: EMPC | شبکه: TON\n\nفعال‌سازی حساب فقط با اتصال کیف پول شخصی TON انجام می‌شود و پرداخت فعال‌سازی لازم نیست.\n\nدیلی‌چک‌این: ۳۰ نوبت موفق لازم است. پاداش از ۵۰ EMPC شروع می‌شود و در هر نوبت موفق ۵۰ EMPC افزایش می‌یابد تا نوبت ۳۰ با ۱٬۵۰۰ EMPC. روزهای جاافتاده پیشرفت را متوقف می‌کنند؛ چک‌این بعدی از شماره بعدی ادامه می‌یابد.\n\nبرداشت: حداقل ۱۷٬۰۰۰ EMPC، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nپاداش دعوت دوستان در دوره بازسازی موقتاً غیرفعال است.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ EMPC مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
+            "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ EMPC MINING\nТокен: EMPC | Сеть: TON\n\nДля активации подключите личный TON-кошелёк. Платёж за активацию не требуется.\n\nЕжедневные отметки: необходимо 30 успешных отметок. Награда начинается с 50 EMPC и увеличивается на 50 EMPC за каждую успешную отметку, достигая 1 500 EMPC на отметке 30. Пропуск дня приостанавливает прогресс; следующая отметка продолжает последовательность.\n\nВывод: минимум 17 000 EMPC, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРеферальные награды временно отключены.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 EMPC — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
         }
         await q.message.answer(info_texts[lang])
         await q.answer()
