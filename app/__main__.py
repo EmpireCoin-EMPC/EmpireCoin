@@ -1427,13 +1427,16 @@ async def main():
         BotCommand(command="task_approve", description="Approve task evidence"),
         BotCommand(command="task_reject", description="Reject task evidence"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
-    # Open the Mini App from Telegram menu button when HTTPS URL is configured.
+    # Keep the Mini App as the default menu button for ordinary users,
+    # but show the command menu to the administrator in their private chat.
     if WEBAPP_URL:
         await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Open EMPC", web_app=WebAppInfo(url=WEBAPP_URL)))
-        print(f"[webapp] Mini App menu button enabled: {WEBAPP_URL}")
+        await bot.set_chat_menu_button(chat_id=ADMIN_ID, menu_button=MenuButtonCommands())
+        print(f"[webapp] Mini App menu button enabled for users: {WEBAPP_URL}")
+        print("[webapp] Administrator command menu enabled.")
     else:
         await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
-        print("[webapp] WEBAPP_URL is not set; Mini App button is disabled.")
+        print("[webapp] WEBAPP_URL is not set; command menu is enabled.")
 
     await asyncio.gather(
         dp.start_polling(bot),
