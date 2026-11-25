@@ -43,7 +43,7 @@ class TelegramAuthTests(unittest.TestCase):
         with self.assertRaises(web.HTTPUnauthorized):
             _telegram_user(FakeRequest(data), TOKEN)
 
-    def test_missing_authorization_rejected(self):
+    def test_duplicate_keys_rejected(self):\n        data = signed_data() + "&auth_date=" + str(int(time.time()))\n        with self.assertRaises(web.HTTPUnauthorized):\n            _telegram_user(FakeRequest(data), TOKEN)\n\n    def test_future_auth_date_rejected(self):\n        data = signed_data(auth_date=int(time.time()) + 120)\n        with self.assertRaises(web.HTTPUnauthorized):\n            _telegram_user(FakeRequest(data), TOKEN)\n\n    def test_missing_authorization_rejected(self):
         request = FakeRequest("")
         request.headers = {}
         with self.assertRaises(web.HTTPUnauthorized):
