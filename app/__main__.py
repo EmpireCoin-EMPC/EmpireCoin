@@ -132,7 +132,7 @@ def activation_keyboard(lang):
 
 def referral_text(lang, link, count, total):
     texts = {
-        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
+        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} EMPC (100 EMPC per activated referral).",
         "fa": f"لینک دعوت: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {total} EMPC. پاداش ریفرال در زمان بازسازی سیستم EmpireCoin موقتاً غیرفعال است.",
         "ru": f"Реферальная ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {total} EMPC. Реферальные награды временно отключены во время обновления EmpireCoin."
     }
@@ -401,7 +401,7 @@ async def user_menu_actions(q: CallbackQuery):
         return
     if action == "info":
         info_texts = {
-            "en": "EMPC MINING — PROJECT INFORMATION\nToken: EMPC | Network: TON\n\nAccount activation requires connecting your personal TON wallet. No activation payment is required.\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 EMPC and increases by 50 EMPC per successful check-in, reaching 1,500 EMPC on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 EMPC, 10% fee, 30 successful check-ins and admin review required.\nReferral rewards are temporarily disabled during this rebuild.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 EMPC allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
+            "en": "EMPC MINING — PROJECT INFORMATION\nToken: EMPC | Network: TON\n\nAccount activation requires connecting your personal TON wallet. No activation payment is required.\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 EMPC and increases by 50 EMPC per successful check-in, reaching 1,500 EMPC on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 EMPC, 10% fee, 30 successful check-ins and admin review required.\nReferral rewards: 100 EMPC per invited user who connects a TON wallet.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 EMPC allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
             "fa": "اطلاعات پروژه EMPC MINING\nتوکن: EMPC | شبکه: TON\n\nفعال‌سازی حساب فقط با اتصال کیف پول شخصی TON انجام می‌شود و پرداخت فعال‌سازی لازم نیست.\n\nدیلی‌چک‌این: ۳۰ نوبت موفق لازم است. پاداش از ۵۰ EMPC شروع می‌شود و در هر نوبت موفق ۵۰ EMPC افزایش می‌یابد تا نوبت ۳۰ با ۱٬۵۰۰ EMPC. روزهای جاافتاده پیشرفت را متوقف می‌کنند؛ چک‌این بعدی از شماره بعدی ادامه می‌یابد.\n\nبرداشت: حداقل ۱۷٬۰۰۰ EMPC، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nپاداش دعوت دوستان در دوره بازسازی موقتاً غیرفعال است.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ EMPC مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
             "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ EMPC MINING\nТокен: EMPC | Сеть: TON\n\nДля активации подключите личный TON-кошелёк. Платёж за активацию не требуется.\n\nЕжедневные отметки: необходимо 30 успешных отметок. Награда начинается с 50 EMPC и увеличивается на 50 EMPC за каждую успешную отметку, достигая 1 500 EMPC на отметке 30. Пропуск дня приостанавливает прогресс; следующая отметка продолжает последовательность.\n\nВывод: минимум 17 000 EMPC, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРеферальные награды временно отключены.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 EMPC — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
         }
@@ -422,7 +422,7 @@ async def user_menu_actions(q: CallbackQuery):
         with db() as c:
             count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
         texts = {
-            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 100} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
+            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 100} EMPC (100 EMPC per activated referral).",
             "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 100} EMPC. پاداش دعوت در دوره بازسازی موقتاً غیرفعال است.",
             "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 100} EMPC (100 EMPC за приглашение; начисления временно отключены)."
         }
@@ -648,7 +648,7 @@ async def mine(m: Message):
 @dp.message(Command("activate"))
 async def activate(m: Message):
     lang = get_user_lang(m.from_user.id)
-    await m.answer({"en":"Activation payments are disabled in the EmpireCoin test version.", "fa":"پرداخت فعال‌سازی در نسخه آزمایشی EmpireCoin غیرفعال است.", "ru":"Платежи за активацию отключены в тестовой версии EmpireCoin."}[lang])
+    await m.answer(activation_prompt(lang))
 
 @dp.message(Command("setwallet"))
 async def setwallet(m: Message):
@@ -924,12 +924,12 @@ async def activation_ok(m: Message):
         if row[4]:
             await m.answer("This user is already activated."); return
         c.execute("UPDATE users SET activation_at=?,withdraw_after=NULL WHERE user_id=?",(start.isoformat(),uid))
-        # Referral payouts are disabled during the EmpireCoin rebuild.
+        # Referral rewards are credited upon wallet connection.
         reward_referral = False
     await m.answer(f"Activation for user {uid} approved. 30 successful check-ins and a 17,000 EMPC minimum balance are required for withdrawal.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
-        "en": "Your account is unlocked for the EmpireCoin test version. No activation payment is required.",
+        "en": "Connect your personal TON wallet to activate your account.",
         "fa": "حساب شما در نسخه آزمایشی EmpireCoin فعال است. پرداخت فعال‌سازی لازم نیست.",
         "ru": "Ваш аккаунт открыт в тестовой версии EmpireCoin. Оплата активации не требуется."
     }
