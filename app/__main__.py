@@ -145,6 +145,7 @@ def referral_text(lang, link, count, total):
 async def daily_checkin(user_id: int, lang: str) -> str:
     today = now().date().isoformat()
     with db() as c:
+        c.execute("BEGIN IMMEDIATE")
         row = c.execute("SELECT activation_at,checkin_day,last_checkin_date FROM users WHERE user_id=?", (user_id,)).fetchone()
         if not row:
             return {"en":"Please start the bot first.","fa":"لطفاً ابتدا ربات را شروع کنید.","ru":"Сначала запустите бота."}[lang]
@@ -631,6 +632,7 @@ async def mine(m: Message):
         return
     t = now()
     with db() as c:
+        c.execute("BEGIN IMMEDIATE")
         row = c.execute("SELECT last_mine FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
         pool = int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
         if row[0] and t - datetime.fromisoformat(row[0]) < timedelta(hours=1):
