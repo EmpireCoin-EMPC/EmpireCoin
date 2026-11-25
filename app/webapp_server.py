@@ -378,7 +378,8 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     app.router.add_post("/api/checkin", checkin)
     app.router.add_post("/api/mine", mine)
     app.router.add_post("/api/language", save_language)
-    app.router.add_get("/api/history", history)\n    app.router.add_post("/api/wallet", save_wallet)
+    app.router.add_get("/api/history", history)
+    app.router.add_post("/api/wallet", save_wallet)
     app.router.add_post("/api/withdraw", withdraw_request)
     app.router.add_post("/api/task_submit", task_submit)
     return app
