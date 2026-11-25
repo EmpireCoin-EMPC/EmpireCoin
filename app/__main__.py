@@ -1287,26 +1287,45 @@ async def admin_send_private_message(m: Message):
 
 @dp.message(Command("lottery_draw"))
 async def lottery_draw(m: Message):
-    if not is_admin(m): return
+    if not is_admin(m):
+        return
     import secrets
-    p=(m.text or "").split()
-    if len(p)!=2 or not p[1].isdigit(): await m.answer("روش استفاده: /lottery_draw LOTTERY_ID"); return
+    p = (m.text or "").split()
+    if len(p) != 2 or not p[1].isdigit():
+        await m.answer("روش استفاده: /lottery_draw LOTTERY_ID")
+        return
+    lottery_id = int(p[1])
     with db() as c:
-        lot=c.execute("SELECT prize,status FROM lotteries WHERE id=?",(int(p[1]),)).fetchone()
-        entries=[x[0] for x in c.execute("SELECT user_id FROM lottery_entries WHERE lottery_id=?",(int(p[1]),)).fetchall()]
-        if not lot or lot[1]!='open' or not entries: await m.answer("قرعه‌کشی باز یا شرکت‌کننده‌ای ندارد."); return
-        winner=secrets.choice(entries)
-        c.execute("UPDATE lotteries SET status='drawn',winner_id=? WHERE id=?",(winner,int(p[1])))
-        c.execute("UPDATE users SET balance=balance+? WHERE user_id=?",(lot[0],winner))
-        log_balance(c, winner, lot[0], "lottery_prize", p[1])
-        pool_change(c,-lot[0])
-    await m.answer(f"برنده قرعه‌کشی: {winner}؛ جایزه {lot[0]} EMPC به موجودی داخلی افزوده شد.")
+        c.execute("BEGIN IMMEDIATE")
+        lot = c.execute("SELECT prize,status FROM lotteries WHERE id=?", (lottery_id,)).fetchone()
+        entries = [x[0] for x in c.execute("SELECT user_id FROM lottery_entries WHERE lottery_id=?", (lottery_id,)).fetchall()]
+        pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+        pool = int(pool_row[0]) if pool_row else 0
+        if not lot or lot[1] != "open" or not entries:
+            await m.answer("قرعه‌کشی باز یا شرکت‌کننده‌ای ندارد.")
+            return
+        prize = int(lot[0])
+        if prize <= 0:
+            await m.answer("مبلغ جایزه معتبر نیست؛ قرعه‌کشی انجام نشد.")
+            return
+        if pool < prize:
+            await m.answer(f"استخر کافی نیست. جایزه: {prize} EMPC؛ موجودی استخر: {pool} EMPC. قرعه‌کشی انجام نشد.")
+            return
+        winner = secrets.choice(entries)
+        c.execute("UPDATE lotteries SET status='drawn',winner_id=? WHERE id=? AND status='open'", (winner, lottery_id))
+        if c.execute("SELECT changes()").fetchone()[0] != 1:
+            await m.answer("این قرعه‌کشی قبلاً پردازش شده است.")
+            return
+        c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (prize, winner))
+        log_balance(c, winner, prize, "lottery_prize", lottery_id)
+        c.execute("UPDATE settings SET value=? WHERE key='pool'", (str(pool-prize),))
+    await m.answer(f"برنده قرعه‌کشی: {winner}؛ جایزه {prize} EMPC به موجودی داخلی افزوده شد.")
     try:
         winner_lang = get_user_lang(winner)
         winner_messages = {
-            "fa": f"🎉 تبریک! شما برنده قرعه‌کشی شماره {p[1]} شدید. جایزه {lot[0]} EMPC به موجودی داخلی شما اضافه شد.",
-            "en": f"🎉 Congratulations! You won lottery #{p[1]}. {lot[0]} EMPC has been added to your internal balance.",
-            "ru": f"🎉 Поздравляем! Вы выиграли в лотерее №{p[1]}. На ваш внутренний баланс начислено {lot[0]} EMPC."
+            "fa": f"🎉 تبریک! شما برنده قرعه‌کشی شماره {lottery_id} شدید. جایزه {prize} EMPC به موجودی داخلی شما اضافه شد.",
+            "en": f"🎉 Congratulations! You won lottery #{lottery_id}. {prize} EMPC has been added to your internal balance.",
+            "ru": f"🎉 Поздравляем! Вы выиграли в лотерее №{lottery_id}. На ваш внутренний баланс начислено {prize} EMPC."
         }
         await bot.send_message(winner, winner_messages.get(winner_lang, winner_messages["en"]))
         await m.answer("پیام خصوصی تبریک برای برنده ارسال شد.")
