@@ -49,7 +49,7 @@ def init_db():
         c.execute("""CREATE TABLE IF NOT EXISTS withdrawals(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount INTEGER,
             fee INTEGER, net INTEGER, wallet TEXT, status TEXT DEFAULT 'pending',
-            tx_hash TEXT, created_at TEXT)""")
+            tx_hash TEXT, created_at TEXT, reviewed_at TEXT)""")
         c.execute("""CREATE TABLE IF NOT EXISTS tasks(
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, reward INTEGER,
             active INTEGER DEFAULT 1)""")
