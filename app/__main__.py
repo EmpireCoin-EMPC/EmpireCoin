@@ -130,14 +130,14 @@ def activation_keyboard(lang):
         [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")]
     ]
     if WEBAPP_URL:
-        rows.append([InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
+        rows.append([InlineKeyboardButton(text="🚀 Open EMPC Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def referral_text(lang, link, count, total):
     texts = {
-        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} GRM. You receive 500 GRM only after the invited user pays 0.1 GRAM and admin confirms activation.",
-        "fa": f"لینک دعوت: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {total} GRM. پس از پرداخت ۰٫۱ GRAM توسط دعوت‌شده و تأیید مدیر، ۵۰۰ GRM دریافت می‌کنید.",
-        "ru": f"Реферальная ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {total} GRM. Награда 500 GRM начисляется после оплаты приглашённым 0.1 GRAM и подтверждения администратором."
+        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} EMPC. You receive 500 EMPC only after the invited user pays 0.1 GRAM and admin confirms activation.",
+        "fa": f"لینک دعوت: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {total} EMPC. پس از پرداخت ۰٫۱ GRAM توسط دعوت‌شده و تأیید مدیر، ۵۰۰ EMPC دریافت می‌کنید.",
+        "ru": f"Реферальная ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {total} EMPC. Награда 500 EMPC начисляется после оплаты приглашённым 0.1 GRAM и подтверждения администратором."
     }
     return texts.get(lang, texts["en"])
 
@@ -145,8 +145,8 @@ async def daily_checkin(user_id: int, lang: str) -> str:
     today = now().date().isoformat()
     with db() as c:
         row = c.execute("SELECT activation_at,checkin_day,last_checkin_date FROM users WHERE user_id=?", (user_id,)).fetchone()
-        if not row or not row[0]:
-            return activation_prompt(lang)
+        if not row:
+            return {"en":"Please start the bot first.","fa":"لطفاً ابتدا ربات را شروع کنید.","ru":"Сначала запустите бота."}[lang]
         if row[2] == today:
             return {"en":"Already checked in today.", "fa":"امروز قبلاً چک‌این کرده‌اید.", "ru":"Сегодня вы уже отметились."}[lang]
         if int(row[1] or 0) >= DAILY_CHECKIN_DAYS:
@@ -162,9 +162,9 @@ async def daily_checkin(user_id: int, lang: str) -> str:
         log_balance(c,user_id,reward,"daily_checkin",day)
         pool_change(c,-reward)
     messages = {
-        "en": f"Check-in {day}/30 complete. Reward: {reward} GRM. Missed days pause progress; next check-in continues from the next number.",
-        "fa": f"چک‌این روز {day} از ۳۰ تکمیل شد. پاداش: {reward} GRM. روزهای جاافتاده شمارش را متوقف می‌کنند؛ دفعه بعد از شماره بعدی ادامه می‌دهید.",
-        "ru": f"Отметка {day}/30 выполнена. Награда: {reward} GRM. Пропущенные дни приостанавливают прогресс; следующая отметка продолжит со следующего номера."
+        "en": f"Check-in {day}/30 complete. Reward: {reward} EMPC. Missed days pause progress; next check-in continues from the next number.",
+        "fa": f"چک‌این روز {day} از ۳۰ تکمیل شد. پاداش: {reward} EMPC. روزهای جاافتاده شمارش را متوقف می‌کنند؛ دفعه بعد از شماره بعدی ادامه می‌دهید.",
+        "ru": f"Отметка {day}/30 выполнена. Награда: {reward} EMPC. Пропущенные дни приостанавливают прогресс; следующая отметка продолжит со следующего номера."
     }
     return messages[lang]
 
@@ -174,13 +174,13 @@ def user_upsert(m: Message):
     stamp = now().isoformat()
     with db() as c:
         c.execute(
-            """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen)
-               VALUES(?,?,?,?,?,?)
+            """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen,activation_at)
+               VALUES(?,?,?,?,?,?,?)
                ON CONFLICT(user_id) DO UPDATE SET
                username=excluded.username, first_name=excluded.first_name,
                last_name=excluded.last_name, last_seen=excluded.last_seen""",
             (m.from_user.id, m.from_user.username or "", m.from_user.first_name or "",
-             m.from_user.last_name or "", stamp, stamp)
+             m.from_user.last_name or "", stamp, stamp, stamp)
         )
 
 def log_balance(c, user_id, change_amount, reason, reference=None):
@@ -261,26 +261,26 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")],
     ]
     if WEBAPP_URL:
-        rows.append([InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
+        rows.append([InlineKeyboardButton(text="🚀 Open EMPC Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def localized_task_text(row, lang):
     index = {"en": 0, "fa": 1, "ru": 2}.get(lang, 0)
     title = row[3 + index] or row[1]
     description = row[6 + index] or ""
-    result = f"#{row[0]} {title} — {row[2]} GRM"
+    result = f"#{row[0]} {title} — {row[2]} EMPC"
     return result + (f"\n{description}" if description else "")
 
 def user_upsert_from_id(user_id: int, username: str, first_name: str = "", last_name: str = ""):
     stamp = now().isoformat()
     with db() as c:
         c.execute(
-            """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen)
-               VALUES(?,?,?,?,?,?)
+            """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen,activation_at)
+               VALUES(?,?,?,?,?,?,?)
                ON CONFLICT(user_id) DO UPDATE SET
                username=excluded.username, first_name=excluded.first_name,
                last_name=excluded.last_name, last_seen=excluded.last_seen""",
-            (user_id, username, first_name, last_name, stamp, stamp)
+            (user_id, username, first_name, last_name, stamp, stamp, stamp)
         )
 
 @dp.callback_query(F.data.startswith("lang:"))
@@ -296,9 +296,9 @@ async def choose_language(q: CallbackQuery):
     with db() as c:
         c.execute("UPDATE users SET lang=? WHERE user_id=?", (lang, q.from_user.id))
     welcome = {
-        "en": "Welcome to GRM Mining! Your language is set to English.",
-        "fa": "به GRM Mining خوش آمدید! زبان شما فارسی تنظیم شد.",
-        "ru": "Добро пожаловать в GRM Mining! Вы выбрали русский язык."
+        "en": "Welcome to EMPC Mining! Your language is set to English.",
+        "fa": "به EMPC Mining خوش آمدید! زبان شما فارسی تنظیم شد.",
+        "ru": "Добро пожаловать в EMPC Mining! Вы выбрали русский язык."
     }
     if q.message:
         if is_user_activated(q.from_user.id):
@@ -312,10 +312,10 @@ async def choose_language(q: CallbackQuery):
 
 USER_TEXT = {
  "en": {
-  "balance":"Balance: {balance} GRM\nMining pool remaining: {pool} GRM\n{status}",
+  "balance":"Balance: {balance} EMPC\nMining pool remaining: {pool} EMPC\n{status}",
   "status":"Withdrawals available after: {date}", "inactive":"Activation payment is not confirmed yet.",
   "mine_wait":"One hour has not passed. Time remaining: {left}", "mine_empty":"The mining pool is empty.",
-  "mine_ok":"{reward} GRM has been added to your balance.", "tasks_empty":"No tasks are available right now.",
+  "mine_ok":"{reward} EMPC has been added to your balance.", "tasks_empty":"No tasks are available right now.",
   "claim_hint":"\nTo claim a task reward: /claim TASK_ID", "lottery_none":"There is no active lottery.",
   "lottery_ok":"You have entered the lottery.", "lottery_dup":"You have already entered this lottery.",
   "wallet":"To save your wallet, send:\n/setwallet WALLET_ADDRESS",
@@ -325,10 +325,10 @@ USER_TEXT = {
   "invalid":"Unknown option.", "copy_company":"📋 Copy company wallet", "copy_wallet":"📋 Copy my wallet"
  },
  "fa": {
-  "balance":"موجودی: {balance} GRM\nباقی‌مانده استخر: {pool} GRM\n{status}",
+  "balance":"موجودی: {balance} EMPC\nباقی‌مانده استخر: {pool} EMPC\n{status}",
   "status":"زمان مجاز برداشت: {date}", "inactive":"پرداخت فعال‌سازی هنوز تأیید نشده است.",
   "mine_wait":"هنوز یک ساعت کامل نشده است. زمان باقی‌مانده: {left}", "mine_empty":"استخر استخراج خالی است.",
-  "mine_ok":"{reward} GRM به موجودی شما اضافه شد.", "tasks_empty":"فعلاً وظیفه‌ای ثبت نشده است.",
+  "mine_ok":"{reward} EMPC به موجودی شما اضافه شد.", "tasks_empty":"فعلاً وظیفه‌ای ثبت نشده است.",
   "claim_hint":"\nبرای دریافت پاداش: /claim TASK_ID", "lottery_none":"قرعه‌کشی فعالی وجود ندارد.",
   "lottery_ok":"در قرعه‌کشی ثبت شدید.", "lottery_dup":"قبلاً در این قرعه‌کشی ثبت شده‌اید.",
   "wallet":"برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS",
@@ -338,10 +338,10 @@ USER_TEXT = {
   "invalid":"گزینه نامعتبر است.", "copy_company":"📋 کپی آدرس کیف پول شرکت", "copy_wallet":"📋 کپی آدرس کیف پول من"
  },
  "ru": {
-  "balance":"Баланс: {balance} GRM\nОстаток пула: {pool} GRM\n{status}",
+  "balance":"Баланс: {balance} EMPC\nОстаток пула: {pool} EMPC\n{status}",
   "status":"Вывод доступен после: {date}", "inactive":"Платёж активации ещё не подтверждён.",
   "mine_wait":"Один час ещё не прошёл. Осталось: {left}", "mine_empty":"В пуле больше нет токенов.",
-  "mine_ok":"На ваш баланс добавлено {reward} GRM.", "tasks_empty":"Сейчас заданий нет.",
+  "mine_ok":"На ваш баланс добавлено {reward} EMPC.", "tasks_empty":"Сейчас заданий нет.",
   "claim_hint":"\nЧтобы получить награду: /claim TASK_ID", "lottery_none":"Нет активной лотереи.",
   "lottery_ok":"Вы зарегистрированы в лотерее.", "lottery_dup":"Вы уже участвуете в этой лотерее.",
   "wallet":"Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS",
@@ -353,20 +353,20 @@ USER_TEXT = {
 }
 
 USER_COMMAND_TEXT = {
-  "balance": ("Balance: {balance} GRM\\nMining pool remaining: {pool} GRM\\n{status}", "موجودی: {balance} GRM\\nباقی‌مانده استخر: {pool} GRM\\n{status}", "Баланс: {balance} GRM\\nОстаток пула: {pool} GRM\\n{status}"),
+  "balance": ("Balance: {balance} EMPC\\nMining pool remaining: {pool} EMPC\\n{status}", "موجودی: {balance} EMPC\\nباقی‌مانده استخر: {pool} EMPC\\n{status}", "Баланс: {balance} EMPC\\nОстаток пула: {pool} EMPC\\n{status}"),
   "activation_pending": ("Activation request submitted and is awaiting admin review. Required payment: {fee} GRAM\\nCompany wallet: {wallet}\\nThe 30-day period starts only after the admin verifies the payment.", "درخواست فعال‌سازی ثبت شد و منتظر بررسی مدیر است. مبلغ لازم: {fee} GRAM\\nکیف پول شرکت: {wallet}\\nمهلت ۳۰ روزه فقط پس از تأیید واقعی پرداخت توسط مدیر آغاز می‌شود.", "Заявка на активацию отправлена и ожидает проверки администратора. Сумма: {fee} GRAM\\nКошелёк компании: {wallet}\\n30-дневный срок начнётся только после проверки платежа администратором."),
   "wallet_saved": ("Wallet saved:\\n{wallet}\\nPlease verify the address carefully before requesting a withdrawal.", "آدرس کیف پول ذخیره شد:\\n{wallet}\\nپیش از درخواست برداشت، آدرس را با دقت بررسی کنید.", "Кошелёк сохранён:\\n{wallet}\\nПеред запросом вывода внимательно проверьте адрес."),
   "wallet": ("To save your wallet, send:\n/setwallet WALLET_ADDRESS", "برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS", "Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS"),
-  "withdraw_usage": ("Usage: /withdraw AMOUNT_G​​RM", "روش استفاده: /withdraw مقدار_GRM", "Использование: /withdraw СУММА_GRM"),
+  "withdraw_usage": ("Usage: /withdraw AMOUNT_G​​RM", "روش استفاده: /withdraw مقدار_EMPC", "Использование: /withdraw СУММА_EMPC"),
   "wallet_required": ("Please set your TON wallet first using /setwallet WALLET_ADDRESS.", "ابتدا کیف پول TON خود را با دستور /setwallet آدرس ثبت کنید.", "Сначала укажите TON-кошелёк командой /setwallet АДРЕС."),
   "withdraw_locked": ("Withdrawals are not available yet. Pay {fee} GRAM and wait {days} days after admin approval.", "برداشت هنوز فعال نیست. مبلغ {fee} GRAM را پرداخت کنید و پس از تأیید مدیر {days} روز صبر کنید.", "Вывод пока недоступен. Оплатите {fee} GRAM и подождите {days} дней после подтверждения администратором."),
   "insufficient": ("Insufficient balance.", "موجودی کافی نیست.", "Недостаточно средств."),
-  "withdraw_created": ("Withdrawal request #{id} submitted. Gross: {amount} GRM; fee ({percent}%): {fee} GRM; net: {net} GRM. Payment is manual after admin approval.", "درخواست برداشت #{id} ثبت شد. مبلغ ناخالص: {amount} GRM؛ کارمزد ({percent}%): {fee} GRM؛ مبلغ خالص: {net} GRM. پرداخت پس از تأیید مدیر دستی انجام می‌شود.", "Заявка на вывод №{id} создана. Сумма: {amount} GRM; комиссия ({percent}%): {fee} GRM; к выплате: {net} GRM. Выплата производится вручную после одобрения администратора."),
+  "withdraw_created": ("Withdrawal request #{id} submitted. Gross: {amount} EMPC; fee ({percent}%): {fee} EMPC; net: {net} EMPC. Payment is manual after admin approval.", "درخواست برداشت #{id} ثبت شد. مبلغ ناخالص: {amount} EMPC؛ کارمزد ({percent}%): {fee} EMPC؛ مبلغ خالص: {net} EMPC. پرداخت پس از تأیید مدیر دستی انجام می‌شود.", "Заявка на вывод №{id} создана. Сумма: {amount} EMPC; комиссия ({percent}%): {fee} EMPC; к выплате: {net} EMPC. Выплата производится вручную после одобрения администратора."),
   "tasks_empty": ("No tasks are available right now.", "فعلاً وظیفه‌ای ثبت نشده است.", "Сейчас заданий нет."),
   "claim_usage": ("Usage: /claim TASK_ID", "روش استفاده: /claim شماره_وظیفه", "Использование: /claim ID_ЗАДАНИЯ"),
   "task_missing": ("Task not found.", "وظیفه پیدا نشد.", "Задание не найдено."),
   "task_duplicate": ("You have already claimed this task.", "این وظیفه قبلاً برای شما ثبت شده است.", "Вы уже отправили заявку по этому заданию."),
-  "task_paid": ("{reward} GRM added. Note: task completion is self-reported in this version.", "{reward} GRM اضافه شد. توجه: انجام وظیفه در نسخه فعلی به‌صورت خوداظهاری است.", "Добавлено {reward} GRM. В этой версии выполнение задания подтверждается самим пользователем."),
+  "task_paid": ("{reward} EMPC added. Note: task completion is self-reported in this version.", "{reward} EMPC اضافه شد. توجه: انجام وظیفه در نسخه فعلی به‌صورت خوداظهاری است.", "Добавлено {reward} EMPC. В этой версии выполнение задания подтверждается самим пользователем."),
   "trade_usage": ("Usage: /trade TRADE_DETAILS", "روش استفاده: /trade توضیحات_معامله", "Использование: /trade ОПИСАНИЕ_СДЕЛКИ"),
   "trade_sent": ("Your trade request has been sent to the administrator for review.", "درخواست معامله برای بررسی مدیر ارسال شد.", "Запрос на сделку отправлен администратору на рассмотрение."),
   "lottery_none": ("There is no active lottery.", "قرعه‌کشی فعالی وجود ندارد.", "Нет активной лотереи."),
@@ -403,9 +403,9 @@ async def user_menu_actions(q: CallbackQuery):
         return
     if action == "info":
         info_texts = {
-            "en": "GRM MINING — PROJECT INFORMATION\nToken: GRM | Network: TON\n\n\n\nActivation: register your TON wallet, pay 0.1 GRAM to the company wallet, then submit /activate TX_HASH. Admin manually verifies payment before mining is enabled.\nCompany activation wallet:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 GRM and increases by 50 GRM per successful check-in, reaching 1,500 GRM on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 GRM, 10% fee, 30 successful check-ins and admin review required.\nReferrals: 500 GRM per invited user after the invitee pays 0.1 GRAM and admin confirms activation.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 GRM allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
-            "fa": "اطلاعات پروژه GRM MINING\nتوکن: GRM | شبکه: TON\n\n\n\nفعال‌سازی: والت TON خود را ثبت کنید، ۰٫۱ GRAM به والت شرکت بپردازید و سپس /activate TX_HASH را ارسال کنید. مدیر پرداخت را دستی بررسی می‌کند؛ پیش از تأیید، ماین فعال نیست.\nوالت شرکت برای فعال‌سازی:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nدیلی‌چک‌این: ۳۰ نوبت موفق لازم است. پاداش از ۵۰ GRM شروع می‌شود و در هر نوبت موفق ۵۰ GRM افزایش می‌یابد تا نوبت ۳۰ با ۱٬۵۰۰ GRM. روزهای جاافتاده پیشرفت را متوقف می‌کنند؛ چک‌این بعدی از شماره بعدی ادامه می‌یابد.\n\nبرداشت: حداقل ۱۷٬۰۰۰ GRM، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nریفرال: برای هر دعوت‌شده، پس از پرداخت ۰٫۱ GRAM و تأیید فعال‌سازی توسط ادمین، ۵۰۰ GRM به دعوت‌کننده تعلق می‌گیرد.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ GRM مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
-            "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ GRM MINING\nТокен: GRM | Сеть: TON\n\n\n\nАктивация: укажите TON-кошелёк, отправьте 0.1 GRAM на кошелёк компании и пришлите /activate TX_HASH. Администратор проверяет платёж вручную; до подтверждения майнинг недоступен.\nКошелёк компании для активации:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nЕжедневные отметки: необходимо 30 успешных отметок. Награда начинается с 50 GRM и увеличивается на 50 GRM за каждую успешную отметку, достигая 1 500 GRM на отметке 30. Пропуск дня приостанавливает прогресс; следующая отметка продолжает последовательность.\n\nВывод: минимум 17 000 GRM, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРефералы: 500 GRM пригласившему после оплаты приглашённым 0.1 GRAM и подтверждения активации администратором.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 GRM — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
+            "en": "EMPC MINING — PROJECT INFORMATION\nToken: EMPC | Network: TON\n\n\n\nActivation: register your TON wallet, pay 0.1 GRAM to the company wallet, then submit /activate TX_HASH. Admin manually verifies payment before mining is enabled.\nCompany activation wallet:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 EMPC and increases by 50 EMPC per successful check-in, reaching 1,500 EMPC on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 EMPC, 10% fee, 30 successful check-ins and admin review required.\nReferrals: 500 EMPC per invited user after the invitee pays 0.1 GRAM and admin confirms activation.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 EMPC allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
+            "fa": "اطلاعات پروژه EMPC MINING\nتوکن: EMPC | شبکه: TON\n\n\n\nفعال‌سازی: والت TON خود را ثبت کنید، ۰٫۱ GRAM به والت شرکت بپردازید و سپس /activate TX_HASH را ارسال کنید. مدیر پرداخت را دستی بررسی می‌کند؛ پیش از تأیید، ماین فعال نیست.\nوالت شرکت برای فعال‌سازی:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nدیلی‌چک‌این: ۳۰ نوبت موفق لازم است. پاداش از ۵۰ EMPC شروع می‌شود و در هر نوبت موفق ۵۰ EMPC افزایش می‌یابد تا نوبت ۳۰ با ۱٬۵۰۰ EMPC. روزهای جاافتاده پیشرفت را متوقف می‌کنند؛ چک‌این بعدی از شماره بعدی ادامه می‌یابد.\n\nبرداشت: حداقل ۱۷٬۰۰۰ EMPC، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nریفرال: برای هر دعوت‌شده، پس از پرداخت ۰٫۱ GRAM و تأیید فعال‌سازی توسط ادمین، ۵۰۰ EMPC به دعوت‌کننده تعلق می‌گیرد.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ EMPC مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
+            "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ EMPC MINING\nТокен: EMPC | Сеть: TON\n\n\n\nАктивация: укажите TON-кошелёк, отправьте 0.1 GRAM на кошелёк компании и пришлите /activate TX_HASH. Администратор проверяет платёж вручную; до подтверждения майнинг недоступен.\nКошелёк компании для активации:\nUQBGbzaKDO0j_gddN5qguj15BrI6L9_VGcnUT0xP6rGXK7KT\n\nЕжедневные отметки: необходимо 30 успешных отметок. Награда начинается с 50 EMPC и увеличивается на 50 EMPC за каждую успешную отметку, достигая 1 500 EMPC на отметке 30. Пропуск дня приостанавливает прогресс; следующая отметка продолжает последовательность.\n\nВывод: минимум 17 000 EMPC, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРефералы: 500 EMPC пригласившему после оплаты приглашённым 0.1 GRAM и подтверждения активации администратором.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 EMPC — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
         }
         await q.message.answer(info_texts[lang])
         await q.answer()
@@ -424,9 +424,9 @@ async def user_menu_actions(q: CallbackQuery):
         with db() as c:
             count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
         texts = {
-            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 500} GRM. 500 GRM is credited after the invited user pays 0.1 GRAM and admin confirms activation.",
-            "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 500} GRM. پس از پرداخت ۰٫۱ GRAM توسط دعوت‌شده و تأیید مدیر، ۵۰۰ GRM به شما داده می‌شود.",
-            "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 500} GRM. 500 GRM начисляются после оплаты 0.1 GRAM приглашённым и подтверждения администратором."
+            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 500} EMPC. 500 EMPC is credited after the invited user pays 0.1 GRAM and admin confirms activation.",
+            "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 500} EMPC. پس از پرداخت ۰٫۱ GRAM توسط دعوت‌شده و تأیید مدیر، ۵۰۰ EMPC به شما داده می‌شود.",
+            "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 500} EMPC. 500 EMPC начисляются после оплаты 0.1 GRAM приглашённым и подтверждения администратором."
         }
         await q.message.answer(texts[lang])
         await q.answer()
@@ -487,9 +487,9 @@ async def user_menu_actions(q: CallbackQuery):
 
 ADMIN_LABELS={"en":["Users","Tasks","Lottery","Withdrawals","Trades","Mining pool","Choose a section:"],"fa":["کاربران","وظایف","قرعه‌کشی","برداشت‌ها","معاملات","استخر استخراج","یک بخش را انتخاب کنید:"],"ru":["Пользователи","Задания","Лотерея","Выводы","Сделки","Пул майнинга","Выберите раздел:"]}
 ADMIN_MESSAGES={
-"en":{"users":"Registered users: {total}\nApproved activations: {active}","tasks":"Tasks (latest 20):\n{items}\n\nAdd: /addtask EN title | FA title | RU title | EN description | FA description | RU description | reward","tasks_empty":"No tasks have been added yet.","lotteries":"Lotteries:\n{items}\n\nCreate: /lottery_create 1000\nDraw: /lottery_draw LOTTERY_ID","lotteries_empty":"No lotteries found.","withdrawals":"Pending withdrawals:\n{items}","withdrawals_empty":"No pending requests.","trades":"Pending trades:\n{items}","trades_empty":"No pending trades.","pool":"Mining pool: {pool} GRM\nSet with: /pool AMOUNT","missing":"Section not found.","menu":"GRM Mining Admin Panel\n{menu}","only":"Administrator only.","action_withdraw":"Withdrawal actions:","action_trade":"Trade actions:"},
-"fa":{"users":"کاربران ثبت‌شده: {total}\nفعال‌سازی تأییدشده: {active}","tasks":"وظایف (۲۰ مورد آخر):\n{items}\n\nافزودن: /addtask عنوان انگلیسی | عنوان فارسی | عنوان روسی | توضیح انگلیسی | توضیح فارسی | توضیح روسی | پاداش","tasks_empty":"هنوز وظیفه‌ای ثبت نشده است.","lotteries":"قرعه‌کشی‌ها:\n{items}\n\nایجاد: /lottery_create 1000\nانتخاب برنده: /lottery_draw شماره","lotteries_empty":"قرعه‌کشی‌ای ثبت نشده است.","withdrawals":"درخواست‌های برداشت در انتظار:\n{items}","withdrawals_empty":"درخواستی در انتظار نیست.","trades":"معاملات در انتظار:\n{items}","trades_empty":"معامله‌ای در انتظار نیست.","pool":"موجودی استخر: {pool} GRM\nبرای تنظیم: /pool مقدار","missing":"بخش پیدا نشد.","menu":"پنل مدیریت GRM Mining\n{menu}","only":"این بخش فقط برای مدیر است.","action_withdraw":"اقدام برای درخواست:","action_trade":"اقدام برای معامله:"},
-"ru":{"users":"Зарегистрированные пользователи: {total}\nПодтверждённые активации: {active}","tasks":"Задания (последние 20):\n{items}\n\nДобавить: /addtask название EN | название FA | название RU | описание EN | описание FA | описание RU | награда","tasks_empty":"Заданий пока нет.","lotteries":"Лотереи:\n{items}\n\nСоздать: /lottery_create 1000\nРозыгрыш: /lottery_draw ID","lotteries_empty":"Лотерей пока нет.","withdrawals":"Ожидающие выводы:\n{items}","withdrawals_empty":"Нет ожидающих заявок.","trades":"Ожидающие сделки:\n{items}","trades_empty":"Ожидающих сделок нет.","pool":"Остаток пула: {pool} GRM\nИзменить: /pool СУММА","missing":"Раздел не найден.","menu":"Панель администратора GRM Mining\n{menu}","only":"Только для администратора.","action_withdraw":"Действия по заявке:","action_trade":"Действия по сделке:"}}
+"en":{"users":"Registered users: {total}\nApproved activations: {active}","tasks":"Tasks (latest 20):\n{items}\n\nAdd: /addtask EN title | FA title | RU title | EN description | FA description | RU description | reward","tasks_empty":"No tasks have been added yet.","lotteries":"Lotteries:\n{items}\n\nCreate: /lottery_create 1000\nDraw: /lottery_draw LOTTERY_ID","lotteries_empty":"No lotteries found.","withdrawals":"Pending withdrawals:\n{items}","withdrawals_empty":"No pending requests.","trades":"Pending trades:\n{items}","trades_empty":"No pending trades.","pool":"Mining pool: {pool} EMPC\nSet with: /pool AMOUNT","missing":"Section not found.","menu":"EMPC Mining Admin Panel\n{menu}","only":"Administrator only.","action_withdraw":"Withdrawal actions:","action_trade":"Trade actions:"},
+"fa":{"users":"کاربران ثبت‌شده: {total}\nفعال‌سازی تأییدشده: {active}","tasks":"وظایف (۲۰ مورد آخر):\n{items}\n\nافزودن: /addtask عنوان انگلیسی | عنوان فارسی | عنوان روسی | توضیح انگلیسی | توضیح فارسی | توضیح روسی | پاداش","tasks_empty":"هنوز وظیفه‌ای ثبت نشده است.","lotteries":"قرعه‌کشی‌ها:\n{items}\n\nایجاد: /lottery_create 1000\nانتخاب برنده: /lottery_draw شماره","lotteries_empty":"قرعه‌کشی‌ای ثبت نشده است.","withdrawals":"درخواست‌های برداشت در انتظار:\n{items}","withdrawals_empty":"درخواستی در انتظار نیست.","trades":"معاملات در انتظار:\n{items}","trades_empty":"معامله‌ای در انتظار نیست.","pool":"موجودی استخر: {pool} EMPC\nبرای تنظیم: /pool مقدار","missing":"بخش پیدا نشد.","menu":"پنل مدیریت EMPC Mining\n{menu}","only":"این بخش فقط برای مدیر است.","action_withdraw":"اقدام برای درخواست:","action_trade":"اقدام برای معامله:"},
+"ru":{"users":"Зарегистрированные пользователи: {total}\nПодтверждённые активации: {active}","tasks":"Задания (последние 20):\n{items}\n\nДобавить: /addtask название EN | название FA | название RU | описание EN | описание FA | описание RU | награда","tasks_empty":"Заданий пока нет.","lotteries":"Лотереи:\n{items}\n\nСоздать: /lottery_create 1000\nРозыгрыш: /lottery_draw ID","lotteries_empty":"Лотерей пока нет.","withdrawals":"Ожидающие выводы:\n{items}","withdrawals_empty":"Нет ожидающих заявок.","trades":"Ожидающие сделки:\n{items}","trades_empty":"Ожидающих сделок нет.","pool":"Остаток пула: {pool} EMPC\nИзменить: /pool СУММА","missing":"Раздел не найден.","menu":"Панель администратора EMPC Mining\n{menu}","only":"Только для администратора.","action_withdraw":"Действия по заявке:","action_trade":"Действия по сделке:"}}
 def admin_msg(lang,key,**kwargs):
     return ADMIN_MESSAGES.get(lang,ADMIN_MESSAGES["en"])[key].format(**kwargs)
 def admin_panel_keyboard(lang="en"):
@@ -499,7 +499,7 @@ def admin_panel_keyboard(lang="en"):
         [InlineKeyboardButton(text="🎟 "+x[2],callback_data="panel:lotteries"),InlineKeyboardButton(text="💸 "+x[3],callback_data="panel:withdrawals")],
         [InlineKeyboardButton(text="🤝 "+x[4],callback_data="panel:trades"),InlineKeyboardButton(text="⛏ "+x[5],callback_data="panel:pool")],
         [InlineKeyboardButton(text="🌐 Language / زبان / Язык",callback_data="user:language")],
-        *([[InlineKeyboardButton(text="🚀 Open GRM Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]] if WEBAPP_URL else [])])
+        *([[InlineKeyboardButton(text="🚀 Open EMPC Mini App", web_app=WebAppInfo(url=WEBAPP_URL))]] if WEBAPP_URL else [])])
 @dp.message(Command("language"))
 async def language_command(m: Message):
     user_upsert(m)
@@ -529,11 +529,11 @@ async def admin_panel_sections(q:CallbackQuery):
             text=admin_msg(lang,"tasks",items=items)
         elif section=="lotteries":
             rows=c.execute("SELECT id,prize,status,winner_id FROM lotteries ORDER BY id DESC LIMIT 20").fetchall()
-            items="\n".join([f"#{i} | {p} GRM | {st} | winner: {w or '-'}" for i,p,st,w in rows]) or ADMIN_MESSAGES[lang]["lotteries_empty"]
+            items="\n".join([f"#{i} | {p} EMPC | {st} | winner: {w or '-'}" for i,p,st,w in rows]) or ADMIN_MESSAGES[lang]["lotteries_empty"]
             text=admin_msg(lang,"lotteries",items=items)
         elif section=="withdrawals":
             rows=c.execute("SELECT id,user_id,amount,net,wallet FROM withdrawals WHERE status='pending' ORDER BY id").fetchall()
-            items="\n".join([f"#{i} | user {u} | gross {a} | net {n} GRM | {w}" for i,u,a,n,w in rows]) or ADMIN_MESSAGES[lang]["withdrawals_empty"]
+            items="\n".join([f"#{i} | user {u} | gross {a} | net {n} EMPC | {w}" for i,u,a,n,w in rows]) or ADMIN_MESSAGES[lang]["withdrawals_empty"]
             text=admin_msg(lang,"withdrawals",items=items)
             buttons=[[InlineKeyboardButton(text=(f"Reject #{i}" if lang=="en" else f"رد #{i}" if lang=="fa" else f"Отклонить #{i}"),callback_data=f"wd:reject:{i}"),InlineKeyboardButton(text=(f"Approve #{i}" if lang=="en" else f"تأیید #{i}" if lang=="fa" else f"Одобрить #{i}"),callback_data=f"wd:approve:{i}")]+([InlineKeyboardButton(text=f"📋 {w}",copy_text=CopyTextButton(text=w))] if w else []) for i,_,_,_,w in rows[:10]]
             if buttons: await q.message.answer(admin_msg(lang,"action_withdraw"),reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
@@ -566,11 +566,11 @@ async def admin_withdraw_action(q: CallbackQuery):
             return
         if action == "approve":
             c.execute("UPDATE withdrawals SET status='approved' WHERE id=? AND status='pending'", (req_id,))
-            result = f"درخواست #{req_id} تأیید شد. مبلغ خالص {row[2]} GRM را دستی پرداخت کنید و سپس /paid {req_id} TX_HASH را بزنید."
+            result = f"درخواست #{req_id} تأیید شد. مبلغ خالص {row[2]} EMPC را دستی پرداخت کنید و سپس /paid {req_id} TX_HASH را بزنید."
         else:
             c.execute("UPDATE withdrawals SET status='rejected' WHERE id=? AND status='pending'", (req_id,))
             pool_change(c, row[1])
-            result = f"درخواست #{req_id} رد شد و {row[1]} GRM به استخر برگشت."
+            result = f"درخواست #{req_id} رد شد و {row[1]} EMPC به استخر برگشت."
     await q.message.answer(result, reply_markup=admin_panel_keyboard(get_user_lang(q.from_user.id)))
     await q.answer("انجام شد.")
 
@@ -600,9 +600,9 @@ async def start(m: Message):
                 c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL AND activation_at IS NULL",
                           (inviter, m.from_user.id))
     prompts = {
-        "en": "Welcome to GRM Mining!\nPlease choose your language to continue.\n\n📘 Before getting started, please watch our simple bot tutorial using the button below.",
-        "fa": "به ربات GRM Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید.\n\n📘 لطفاً پیش از شروع فعالیت، حتماً آموزش ساده ربات را از دکمه زیر ببینید.",
-        "ru": "Добро пожаловать в GRM Mining!\nВыберите язык, чтобы продолжить.\n\n📘 Перед началом работы обязательно посмотрите краткую инструкцию по боту, нажав кнопку ниже."
+        "en": "Welcome to EMPC Mining!\nPlease choose your language to continue.\n\n📘 Before getting started, please watch our simple bot tutorial using the button below.",
+        "fa": "به ربات EMPC Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید.\n\n📘 لطفاً پیش از شروع فعالیت، حتماً آموزش ساده ربات را از دکمه زیر ببینید.",
+        "ru": "Добро пожаловать в EMPC Mining!\nВыберите язык, чтобы продолжить.\n\n📘 Перед началом работы обязательно посмотрите краткую инструкцию по боту, нажав кнопку ниже."
     }
     await m.answer(prompts.get(get_user_lang(m.from_user.id), "en"), reply_markup=language_keyboard())
 
@@ -642,28 +642,9 @@ async def mine(m: Message):
     await m.answer(ut(lang, "mine_ok", reward=reward))
 
 @dp.message(Command("activate"))
-@dp.message(Command("activate"))
 async def activate(m: Message):
-    user_upsert(m)
     lang = get_user_lang(m.from_user.id)
-    parts = (m.text or "").split(maxsplit=1)
-    if len(parts) != 2 or len(parts[1].strip()) < 8:
-        await m.answer(ut(lang, "activate", fee=ACTIVATION_FEE, wallet=COMPANY_WALLET), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
-        return
-    with db() as c:
-        wallet_row = c.execute("SELECT wallet,activation_at FROM users WHERE user_id=?", (m.from_user.id,)).fetchone()
-    if not wallet_row or not wallet_row[0]:
-        await m.answer({"en":"Set your wallet first: /setwallet WALLET_ADDRESS","fa":"ابتدا والت خود را ثبت کنید: /setwallet آدرس_والت","ru":"Сначала укажите кошелёк: /setwallet АДРЕС"}[lang])
-        return
-    if wallet_row[1]:
-        await m.answer({"en":"Account already activated.","fa":"حساب شما قبلاً فعال شده است.","ru":"Аккаунт уже активирован."}[lang])
-        return
-    tx = parts[1].strip()
-    with db() as c:
-        c.execute("UPDATE users SET activation_tx=?,activation_at=NULL,withdraw_after=NULL WHERE user_id=?", (tx, m.from_user.id))
-    if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"Activation review request\nUser: {m.from_user.id}\nTX: {tx}\nExpected: {ACTIVATION_FEE} GRAM\nDestination: {COMPANY_WALLET}\nAfter checking TON explorer: /activation_ok {m.from_user.id}")
-    await m.answer(uct(lang, "activation_pending", fee=ACTIVATION_FEE, wallet=COMPANY_WALLET), reply_markup=copy_text_keyboard(COMPANY_WALLET, ut(lang, "copy_company")))
+    await m.answer({"en":"Activation payments are disabled in the EmpireCoin test version.", "fa":"پرداخت فعال‌سازی در نسخه آزمایشی EmpireCoin غیرفعال است.", "ru":"Платежи за активацию отключены в тестовой версии EmpireCoin."}[lang])
 
 @dp.message(Command("setwallet"))
 @dp.message(Command("setwallet"))
@@ -686,7 +667,7 @@ async def withdraw(m: Message):
         return
     amount = int(p[1])
     if amount < MIN_WITHDRAWAL:
-        await m.answer({"en":"Minimum withdrawal is 17,000 GRM.","fa":"حداقل برداشت ۱۷٬۰۰۰ GRM است.","ru":"Минимальный вывод — 17 000 GRM."}[lang])
+        await m.answer({"en":"Minimum withdrawal is 17,000 EMPC.","fa":"حداقل برداشت ۱۷٬۰۰۰ EMPC است.","ru":"Минимальный вывод — 17 000 EMPC."}[lang])
         return
     if not is_user_activated(m.from_user.id):
         await m.answer(activation_prompt(lang))
@@ -768,15 +749,15 @@ async def claim(m: Message):
         )
         submission_id = cur.lastrowid
     confirmations = {
-        "en": f"Evidence submitted for task #{tid}. Reward: {task[0]} GRM. It will be credited only after admin approval. Submission #{submission_id}.",
-        "fa": f"مدرک وظیفه #{tid} ارسال شد. پاداش: {task[0]} GRM. فقط پس از تأیید مدیر به موجودی افزوده می‌شود. درخواست #{submission_id}.",
-        "ru": f"Доказательство для задания №{tid} отправлено. Награда: {task[0]} GRM. Она будет начислена только после одобрения администратора. Заявка №{submission_id}."
+        "en": f"Evidence submitted for task #{tid}. Reward: {task[0]} EMPC. It will be credited only after admin approval. Submission #{submission_id}.",
+        "fa": f"مدرک وظیفه #{tid} ارسال شد. پاداش: {task[0]} EMPC. فقط پس از تأیید مدیر به موجودی افزوده می‌شود. درخواست #{submission_id}.",
+        "ru": f"Доказательство для задания №{tid} отправлено. Награда: {task[0]} EMPC. Она будет начислена только после одобрения администратора. Заявка №{submission_id}."
     }
     await m.answer(confirmations[lang])
     if ADMIN_ID:
         admin_caption = (
             f"Task submission #{submission_id}\\nUser: {m.from_user.id}\\nTask: #{tid}\\n"
-            f"Reward: {task[0]} GRM\\nEvidence: {evidence}\\n"
+            f"Reward: {task[0]} EMPC\\nEvidence: {evidence}\\n"
             f"Approve: /task_approve {submission_id}\\nReject: /task_reject {submission_id}"
         )
         if media_file_id:
@@ -799,7 +780,7 @@ async def task_pending(m: Message):
         return
     lines = ["Pending task submissions:"]
     for sid, uid, tid, reward, evidence, created, media_type in rows:
-        lines.append(f"#{sid} | user={uid} | task=#{tid} | reward={reward} GRM | {created}\nEvidence: {evidence}\nApprove: /task_approve {sid} | Reject: /task_reject {sid}")
+        lines.append(f"#{sid} | user={uid} | task=#{tid} | reward={reward} EMPC | {created}\nEvidence: {evidence}\nApprove: /task_approve {sid} | Reject: /task_reject {sid}")
     await m.answer("\n\n".join(lines))
 
 @dp.message(Command("task_approve"))
@@ -837,11 +818,11 @@ async def task_approve(m: Message):
         pool_change(c, -reward)
         c.execute("UPDATE task_submissions SET status='approved',reviewed_at=? WHERE id=?", (now().isoformat(), sid))
         user_row = c.execute("SELECT lang FROM users WHERE user_id=?", (uid,)).fetchone()
-    await m.answer(f"Submission #{sid} approved. {reward} GRM credited to user {uid}.")
+    await m.answer(f"Submission #{sid} approved. {reward} EMPC credited to user {uid}.")
     lang = user_row[0] if user_row and user_row[0] in ("en","fa","ru") else "en"
-    notices = {"en": f"Your evidence for task #{tid} was approved. {reward} GRM has been added to your balance.",
-               "fa": f"مدرک وظیفه #{tid} تأیید شد و {reward} GRM به موجودی شما افزوده شد.",
-               "ru": f"Ваше доказательство задания №{tid} одобрено. На баланс начислено {reward} GRM."}
+    notices = {"en": f"Your evidence for task #{tid} was approved. {reward} EMPC has been added to your balance.",
+               "fa": f"مدرک وظیفه #{tid} تأیید شد و {reward} EMPC به موجودی شما افزوده شد.",
+               "ru": f"Ваше доказательство задания №{tid} одобрено. На баланс начислено {reward} EMPC."}
     await bot.send_message(uid, notices[lang])
 
 @dp.message(Command("task_reject"))
@@ -932,20 +913,20 @@ async def activation_ok(m: Message):
             log_balance(c, inviter, 500, "referral_reward", uid)
             pool_change(c, -500)
             c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?", (uid,))
-    await m.answer(f"Activation for user {uid} approved. 30 successful check-ins and a 17,000 GRM minimum balance are required for withdrawal.")
+    await m.answer(f"Activation for user {uid} approved. 30 successful check-ins and a 17,000 EMPC minimum balance are required for withdrawal.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
-        "en": "Your activation payment is confirmed. You may now mine and use the bot. Withdrawals require 30 successful daily check-ins and a minimum balance of 17,000 GRM.",
-        "fa": "پرداخت فعال‌سازی شما تأیید شد. اکنون می‌توانید ماین و از ربات استفاده کنید. برداشت به ۳۰ نوبت دیلی‌چک‌این موفق و حداقل موجودی ۱۷٬۰۰۰ GRM نیاز دارد.",
-        "ru": "Платёж за активацию подтверждён. Теперь доступен майнинг. Для вывода нужны 30 успешных ежедневных отметок и баланс не менее 17 000 GRM."
+        "en": "Your activation payment is confirmed. You may now mine and use the bot. Withdrawals require 30 successful daily check-ins and a minimum balance of 17,000 EMPC.",
+        "fa": "پرداخت فعال‌سازی شما تأیید شد. اکنون می‌توانید ماین و از ربات استفاده کنید. برداشت به ۳۰ نوبت دیلی‌چک‌این موفق و حداقل موجودی ۱۷٬۰۰۰ EMPC نیاز دارد.",
+        "ru": "Платёж за активацию подтверждён. Теперь доступен майнинг. Для вывода нужны 30 успешных ежедневных отметок и баланс не менее 17 000 EMPC."
     }
     await bot.send_message(uid, notices[lang])
     if reward_referral:
         try:
             inviter_lang = get_user_lang(inviter)
-            referral_notices = {"en": f"Your referral {uid} activated. 500 GRM was credited.",
-                                "fa": f"دعوت‌شده شما ({uid}) فعال شد و ۵۰۰ GRM پاداش گرفتید.",
-                                "ru": f"Ваш приглашённый пользователь {uid} активирован. Начислено 500 GRM."}
+            referral_notices = {"en": f"Your referral {uid} activated. 500 EMPC was credited.",
+                                "fa": f"دعوت‌شده شما ({uid}) فعال شد و ۵۰۰ EMPC پاداش گرفتید.",
+                                "ru": f"Ваш приглашённый пользователь {uid} активирован. Начислено 500 EMPC."}
             await bot.send_message(inviter, referral_notices[inviter_lang])
         except Exception:
             pass
@@ -1025,7 +1006,7 @@ async def tasks_admin(m: Message):
         await m.answer("هیچ وظیفه فعالی وجود ندارد.")
         return
     lines = ["وظایف فعال (برای حذف: /deltask شناسه):"]
-    lines.extend([f"#{task_id} — {title or 'بدون عنوان'} — {reward} GRM" for task_id, title, reward in rows])
+    lines.extend([f"#{task_id} — {title or 'بدون عنوان'} — {reward} EMPC" for task_id, title, reward in rows])
     await m.answer("\n".join(lines))
 
 
@@ -1150,10 +1131,10 @@ async def report(m: Message):
     await m.answer(
         "گزارش کلی ربات\\n"
         f"کاربران ثبت‌شده: {users}\\n"
-        f"مجموع موجودی کاربران: {balances} GRM\\n"
-        f"باقی‌مانده استخر: {pool} GRM\\n"
+        f"مجموع موجودی کاربران: {balances} EMPC\\n"
+        f"باقی‌مانده استخر: {pool} EMPC\\n"
         f"وظایف فعال: {tasks_count}\\n"
-        f"برداشت‌های در انتظار: {pending_withdrawals[0]} (مجموع {pending_withdrawals[1]} GRM)\\n"
+        f"برداشت‌های در انتظار: {pending_withdrawals[0]} (مجموع {pending_withdrawals[1]} EMPC)\\n"
         f"برداشت‌های تأییدشده و پرداخت‌نشده: {approved_withdrawals}\\n"
         f"معاملات در انتظار: {pending_trades}\\n"
         f"قرعه‌کشی‌های باز: {open_lotteries}"
@@ -1192,7 +1173,7 @@ async def history(m: Message):
         sign = "+" if amount > 0 else ""
         label = reason_names.get(reason, reason)
         ref_text = f" | Ref: {reference}" if reference else ""
-        lines.append(f"{created} | {sign}{amount} GRM | {label}{ref_text}")
+        lines.append(f"{created} | {sign}{amount} EMPC | {label}{ref_text}")
     await m.answer("\n".join(lines))
 
 
@@ -1221,7 +1202,7 @@ async def user_info(m: Message):
         f"نام کاربری: @{username or 'ندارد'}\\n"
         f"اولین ورود: {first_seen or 'در نسخه قبلی ثبت نشده'}\\n"
         f"آخرین فعالیت: {last_seen or 'در نسخه قبلی ثبت نشده'}\\n"
-        f"موجودی: {balance} GRM\\n"
+        f"موجودی: {balance} EMPC\\n"
         f"کیف پول: {wallet or 'ثبت نشده'}\\n"
         f"زبان: {lang_name}\\n"
         f"شناسه تراکنش فعال‌سازی: {activation_tx or 'ثبت نشده'}\\n"
@@ -1238,7 +1219,7 @@ async def pool(m: Message):
     with db() as c:
         if len(p)==2 and p[1].isdigit(): c.execute("UPDATE settings SET value=? WHERE key='pool'",(p[1],))
         val=c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0]
-    await m.answer(f"استخر فعلی: {val} GRM")
+    await m.answer(f"استخر فعلی: {val} EMPC")
 
 @dp.message(Command("approve_trade"))
 async def approve_trade(m: Message):
@@ -1260,12 +1241,12 @@ async def reject_trade(m: Message):
 async def lottery_create(m: Message):
     if not is_admin(m): return
     p=(m.text or "").split()
-    if len(p)!=2 or not p[1].isdigit(): await m.answer("روش استفاده: /lottery_create PRIZE_GRM"); return
+    if len(p)!=2 or not p[1].isdigit(): await m.answer("روش استفاده: /lottery_create PRIZE_EMPC"); return
     with db() as c:
         pool=int(c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()[0])
         prize=min(int(p[1]),pool)
         cur=c.execute("INSERT INTO lotteries(prize) VALUES(?)",(prize,))
-    await m.answer(f"قرعه‌کشی #{cur.lastrowid} با جایزه {prize} GRM ایجاد شد.")
+    await m.answer(f"قرعه‌کشی #{cur.lastrowid} با جایزه {prize} EMPC ایجاد شد.")
 
 @dp.message(Command("sendmsg"))
 async def admin_send_private_message(m: Message):
@@ -1328,13 +1309,13 @@ async def lottery_draw(m: Message):
         c.execute("UPDATE users SET balance=balance+? WHERE user_id=?",(lot[0],winner))
         log_balance(c, winner, lot[0], "lottery_prize", p[1])
         pool_change(c,-lot[0])
-    await m.answer(f"برنده قرعه‌کشی: {winner}؛ جایزه {lot[0]} GRM به موجودی داخلی افزوده شد.")
+    await m.answer(f"برنده قرعه‌کشی: {winner}؛ جایزه {lot[0]} EMPC به موجودی داخلی افزوده شد.")
     try:
         winner_lang = get_user_lang(winner)
         winner_messages = {
-            "fa": f"🎉 تبریک! شما برنده قرعه‌کشی شماره {p[1]} شدید. جایزه {lot[0]} GRM به موجودی داخلی شما اضافه شد.",
-            "en": f"🎉 Congratulations! You won lottery #{p[1]}. {lot[0]} GRM has been added to your internal balance.",
-            "ru": f"🎉 Поздравляем! Вы выиграли в лотерее №{p[1]}. На ваш внутренний баланс начислено {lot[0]} GRM."
+            "fa": f"🎉 تبریک! شما برنده قرعه‌کشی شماره {p[1]} شدید. جایزه {lot[0]} EMPC به موجودی داخلی شما اضافه شد.",
+            "en": f"🎉 Congratulations! You won lottery #{p[1]}. {lot[0]} EMPC has been added to your internal balance.",
+            "ru": f"🎉 Поздравляем! Вы выиграли в лотерее №{p[1]}. На ваш внутренний баланс начислено {lot[0]} EMPC."
         }
         await bot.send_message(winner, winner_messages.get(winner_lang, winner_messages["en"]))
         await m.answer("پیام خصوصی تبریک برای برنده ارسال شد.")
@@ -1352,7 +1333,7 @@ async def main():
     await bot.set_my_commands([
         BotCommand(command="start", description="Start the bot"),
         BotCommand(command="balance", description="View your balance"),
-        BotCommand(command="mine", description="Hourly GRM mining"),
+        BotCommand(command="mine", description="Hourly EMPC mining"),
         BotCommand(command="activate", description="Submit activation transaction"),
         BotCommand(command="setwallet", description="Set your wallet address"),
         BotCommand(command="withdraw", description="Request a withdrawal"),
