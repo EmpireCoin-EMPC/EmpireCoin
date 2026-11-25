@@ -323,7 +323,7 @@ USER_TEXT = {
   "wallet":"To save your wallet, send:\n/setwallet WALLET_ADDRESS",
   "withdraw":"To request a withdrawal, send:\n/withdraw AMOUNT\nWithdrawals are available 30 days after activation approval.",
   "trade":"To request a trade, send:\n/trade TRADE_DETAILS",
-  "activate":"Step 1: Save your own TON wallet with /setwallet WALLET_ADDRESS.\nStep 2: Pay {fee} GRAM to the company wallet below.\nStep 3: Submit /activate TX_HASH. Mining is locked until the administrator confirms the payment.\nCompany wallet:\n{wallet}",
+  "activate":"Activation payments are disabled in the test version. Mining accounts are unlocked for testing.",
   "invalid":"Unknown option.", "copy_company":"📋 Copy company wallet", "copy_wallet":"📋 Copy my wallet"
  },
  "fa": {
@@ -336,7 +336,7 @@ USER_TEXT = {
   "wallet":"برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS",
   "withdraw":"برای درخواست برداشت بفرستید:\n/withdraw AMOUNT\nبرداشت ۳۰ روز پس از تأیید فعال‌سازی ممکن است.",
   "trade":"برای درخواست معامله بفرستید:\n/trade TRADE_DETAILS",
-  "activate":"مرحله ۱: والت خود را با /setwallet آدرس_والت ثبت کنید.\nمرحله ۲: مبلغ {fee} GRAM را به والت شرکت بفرستید.\nمرحله ۳: دستور /activate TX_HASH را ارسال کنید. تا تأیید مدیر، ماین فعال نمی‌شود.\nوالت شرکت:\n{wallet}",
+  "activate":"پرداخت فعال‌سازی در نسخه آزمایشی غیرفعال است؛ حساب‌ها برای آزمایش باز هستند.",
   "invalid":"گزینه نامعتبر است.", "copy_company":"📋 کپی آدرس کیف پول شرکت", "copy_wallet":"📋 کپی آدرس کیف پول من"
  },
  "ru": {
@@ -349,7 +349,7 @@ USER_TEXT = {
   "wallet":"Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS",
   "withdraw":"Чтобы запросить вывод, отправьте:\n/withdraw AMOUNT\nВывод доступен через 30 дней после подтверждения активации.",
   "trade":"Чтобы запросить сделку, отправьте:\n/trade TRADE_DETAILS",
-  "activate":"Шаг 1: Укажите свой TON-кошелёк командой /setwallet АДРЕС.\nШаг 2: Отправьте {fee} GRAM на кошелёк компании.\nШаг 3: Пришлите /activate TX_HASH. Майнинг откроется только после подтверждения администратора.\nКошелёк компании:\n{wallet}",
+  "activate":"Платежи за активацию отключены в тестовой версии; аккаунты открыты для тестирования.",
   "invalid":"Неизвестная команда.", "copy_company":"📋 Копировать кошелёк компании", "copy_wallet":"📋 Копировать мой кошелёк"
  }
 }
@@ -863,7 +863,6 @@ async def task_reject(m: Message):
                "ru": f"Ваше доказательство задания №{row[1]} отклонено. Вы можете отправить новое командой /claim {row[1]}."}
     await bot.send_message(row[0], notices[lang])
 
-@dp.message(Command("trade"))
 @dp.message(Command("trade"))
 async def trade(m: Message):
     p=(m.text or "").split(maxsplit=1)
