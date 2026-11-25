@@ -23,7 +23,7 @@ def signed_data(user=None, auth_date=None):
         "auth_date": str(auth_date if auth_date is not None else int(time.time())),
         "user": json.dumps(user or {"id": 12345, "first_name": "Test"}, separators=(",", ":")),
     }
-    check_string = "\\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
+    check_string = "\n".join(f"{k}={v}" for k, v in sorted(pairs.items()))
     secret = hmac.new(b"WebAppData", TOKEN.encode(), hashlib.sha256).digest()
     pairs["hash"] = hmac.new(secret, check_string.encode(), hashlib.sha256).hexdigest()
     return urlencode(pairs)
