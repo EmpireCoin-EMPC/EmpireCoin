@@ -931,8 +931,14 @@ async def activation_ok(m: Message):
 async def approve(m: Message):
     if not is_admin(m): return
     p=(m.text or "").split()
-    if len(p)!=2 or not p[1].isdigit(): await m.answer("روش استفاده: /approve REQUEST_ID"); return
-    with db() as c: c.execute("UPDATE withdrawals SET status='approved' WHERE id=? AND status='pending'",(int(p[1]),))
+    if len(p)!=2 or not p[1].isdigit():
+        await m.answer("روش استفاده: /approve REQUEST_ID"); return
+    req_id=int(p[1])
+    with db() as c:
+        c.execute("BEGIN IMMEDIATE")
+        cur=c.execute("UPDATE withdrawals SET status='approved' WHERE id=? AND status='pending'",(req_id,))
+        if cur.rowcount != 1:
+            await m.answer("درخواست در انتظار پیدا نشد یا قبلاً پردازش شده است."); return
     await m.answer("درخواست تأیید شد. مبلغ خالص را دستی به کیف پول کاربر ارسال کنید؛ سپس /paid REQUEST_ID TX_HASH را ثبت کنید.")
 
 @dp.message(Command("reject"))
@@ -966,10 +972,15 @@ async def paid(m: Message):
     if len(p)!=3 or not p[1].isdigit():
         await m.answer("Usage: /paid REQUEST_ID TX_HASH")
         return
+    req_id=int(p[1])
     with db() as c:
-        r=c.execute("SELECT user_id FROM withdrawals WHERE id=? AND status='approved'",(int(p[1]),)).fetchone()
-        if not r: await m.answer("Approved withdrawal request not found."); return
-        c.execute("UPDATE withdrawals SET status='paid',tx_hash=? WHERE id=?",(p[2],int(p[1])))
+        c.execute("BEGIN IMMEDIATE")
+        r=c.execute("SELECT user_id FROM withdrawals WHERE id=? AND status='approved'",(req_id,)).fetchone()
+        if not r:
+            await m.answer("Approved withdrawal request not found or already completed."); return
+        cur=c.execute("UPDATE withdrawals SET status='paid',tx_hash=? WHERE id=? AND status='approved'",(p[2],req_id))
+        if cur.rowcount != 1:
+            await m.answer("This withdrawal was already processed."); return
         user_row=c.execute("SELECT lang FROM users WHERE user_id=?",(r[0],)).fetchone()
     await m.answer("Payment marked as completed.")
     lang = user_row[0] if user_row and user_row[0] in ("en","fa","ru") else "en"
