@@ -200,7 +200,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         except (ValueError, TypeError, AttributeError):
             raise web.HTTPBadRequest(text="Enter a valid whole-number amount")
         if amount < 17000:
-            raise web.HTTPBadRequest(text="Minimum withdrawal is 17,000 GRM")
+            raise web.HTTPBadRequest(text="Minimum withdrawal is 17,000 EMPC")
         fee = amount * app["fee_percent"] // 100
         net = amount - fee
         with _db(app["db_path"]) as c:
@@ -215,7 +215,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             if int(user[3] or 0) < 30:
                 raise web.HTTPForbidden(text="Complete 30 successful daily check-ins first")
             if amount > int(user[0] or 0):
-                raise web.HTTPBadRequest(text="Insufficient GRM balance")
+                raise web.HTTPBadRequest(text="Insufficient EMPC balance")
             cur = c.execute(
                 "INSERT INTO withdrawals(user_id,amount,fee,net,wallet,created_at) VALUES(?,?,?,?,?,?)",
                 (uid, amount, fee, net, user[1], datetime.now(timezone.utc).isoformat())
@@ -231,7 +231,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             try:
                 await admin_bot.send_message(
                     app["admin_id"],
-                    f"New Mini App withdrawal #{request_id}\nUser: {uid}\nGross: {amount} GRM\nFee ({app['fee_percent']}%): {fee} GRM\nNet to send: {net} GRM\nWallet: {user[1]}\nReview: /pending"
+                    f"New Mini App withdrawal #{request_id}\nUser: {uid}\nGross: {amount} EMPC\nFee ({app['fee_percent']}%): {fee} EMPC\nNet to send: {net} EMPC\nWallet: {user[1]}\nReview: /pending"
                 )
             finally:
                 await admin_bot.session.close()
@@ -310,7 +310,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             submission_id = cur.lastrowid
         caption = (
             f"Mini App task submission #{submission_id}\nUser: {uid}\nTask: #{task_id}\n"
-            f"Reward: {task[0]} GRM\nEvidence: {evidence or 'Photo attached'}\n"
+            f"Reward: {task[0]} EMPC\nEvidence: {evidence or 'Photo attached'}\n"
             f"Approve: /task_approve {submission_id}\nReject: /task_reject {submission_id}"
         )
         try:
