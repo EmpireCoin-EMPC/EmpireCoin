@@ -252,6 +252,21 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             raise web.HTTPServiceUnavailable(text="Your request could not be delivered to the administrator. The debit has been reversed; please try again.") from exc
         return web.json_response({"ok": True, "request_id": request_id, "amount": amount, "fee": fee, "net": net})
 
+    async def history(request):
+        tg = _telegram_user(request, app["bot_token"])
+        uid = int(tg["id"])
+        with _db(app["db_path"]) as c:
+            withdrawals = c.execute(
+                "SELECT id,amount,fee,net,wallet,status,tx_hash,created_at FROM withdrawals WHERE user_id=? ORDER BY id DESC LIMIT 10", (uid,)
+            ).fetchall()
+            transactions = c.execute(
+                "SELECT id,change_amount,reason,reference,created_at FROM balance_history WHERE user_id=? ORDER BY id DESC LIMIT 10", (uid,)
+            ).fetchall()
+        items = [{"kind":"withdrawal","id":r[0],"amount":r[1],"fee":r[2],"net":r[3],"wallet":r[4],"status":r[5],"tx_hash":r[6],"created_at":r[7]} for r in withdrawals]
+        items += [{"kind":"balance","id":r[0],"change":r[1],"reason":r[2],"reference":r[3],"created_at":r[4]} for r in transactions]
+        items.sort(key=lambda x:x.get("created_at") or "", reverse=True)
+        return web.json_response({"items":items[:10]})
+
     async def save_wallet(request):
         tg = _user(request)
         try:
@@ -363,7 +378,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     app.router.add_post("/api/checkin", checkin)
     app.router.add_post("/api/mine", mine)
     app.router.add_post("/api/language", save_language)
-    app.router.add_post("/api/wallet", save_wallet)
+    app.router.add_get("/api/history", history)\n    app.router.add_post("/api/wallet", save_wallet)
     app.router.add_post("/api/withdraw", withdraw_request)
     app.router.add_post("/api/task_submit", task_submit)
     return app
