@@ -608,7 +608,6 @@ async def start(m: Message):
     await m.answer(prompts.get(get_user_lang(m.from_user.id), "en"), reply_markup=language_keyboard())
 
 @dp.message(Command("balance"))
-@dp.message(Command("balance"))
 async def balance(m: Message):
     user_upsert(m)
     lang = get_user_lang(m.from_user.id)
@@ -647,7 +646,6 @@ async def activate(m: Message):
     lang = get_user_lang(m.from_user.id)
     await m.answer({"en":"Activation payments are disabled in the EmpireCoin test version.", "fa":"پرداخت فعال‌سازی در نسخه آزمایشی EmpireCoin غیرفعال است.", "ru":"Платежи за активацию отключены в тестовой версии EmpireCoin."}[lang])
 
-@dp.message(Command("setwallet"))
 @dp.message(Command("setwallet"))
 async def setwallet(m: Message):
     p = (m.text or "").split(maxsplit=1)
@@ -694,7 +692,6 @@ async def withdraw(m: Message):
     if ADMIN_ID:
         await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\nUser: {m.from_user.id}\nGross: {amount}\nNet: {net}\nWallet: {u[1]}\nReview: /pending")
 
-@dp.message(Command("tasks"))
 @dp.message(Command("tasks"))
 async def tasks(m: Message):
     lang = get_user_lang(m.from_user.id)
