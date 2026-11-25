@@ -136,7 +136,7 @@ def activation_keyboard(lang):
 
 def referral_text(lang, link, count, total):
     texts = {
-        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} EMPC. Referral rewards are temporarily disabled while the EmpireCoin system is being rebuilt.",
+        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
         "fa": f"لینک دعوت: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {total} EMPC. پاداش ریفرال در زمان بازسازی سیستم EmpireCoin موقتاً غیرفعال است.",
         "ru": f"Реферальная ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {total} EMPC. Реферальные награды временно отключены во время обновления EmpireCoin."
     }
@@ -212,7 +212,7 @@ async def referral_command(m: Message):
     link = f"https://t.me/{me.username}?start=ref{m.from_user.id}"
     with db() as c:
         count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (m.from_user.id,)).fetchone()[0]
-    await m.answer(referral_text(lang, link, count, count * 500))
+    await m.answer(referral_text(lang, link, count, count * 100))
 
 @dp.message(Command("referrals"))
 async def referrals_admin(m: Message):
@@ -425,7 +425,7 @@ async def user_menu_actions(q: CallbackQuery):
         with db() as c:
             count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
         texts = {
-            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 500} EMPC. Referral rewards are temporarily disabled during this rebuild.",
+            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 100} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
             "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 500} EMPC. پاداش دعوت در دوره بازسازی موقتاً غیرفعال است.",
             "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 500} EMPC. Реферальные награды временно отключены."
         }
@@ -915,9 +915,9 @@ async def activation_ok(m: Message):
     if reward_referral:
         try:
             inviter_lang = get_user_lang(inviter)
-            referral_notices = {"en": f"Your referral {uid} activated. 500 EMPC was credited.",
-                                "fa": f"دعوت‌شده شما ({uid}) فعال شد و ۵۰۰ EMPC پاداش گرفتید.",
-                                "ru": f"Ваш приглашённый пользователь {uid} активирован. Начислено 500 EMPC."}
+            referral_notices = {"en": f"Your referral {uid} activated. 100 EMPC was credited.",
+                                "fa": f"دعوت‌شده شما ({uid}) فعال شد و ۱۰۰ EMPC پاداش گرفتید.",
+                                "ru": f"Ваш приглашённый пользователь {uid} активирован. Начислено 100 EMPC."}
             await bot.send_message(inviter, referral_notices[inviter_lang])
         except Exception:
             pass
