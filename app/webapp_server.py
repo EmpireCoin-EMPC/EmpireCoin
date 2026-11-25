@@ -71,7 +71,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                    username=excluded.username, first_name=excluded.first_name,
                    last_name=excluded.last_name, last_seen=excluded.last_seen""",
                 (int(tg["id"]), tg.get("username", ""), tg.get("first_name", ""),
-                 tg.get("last_name", ""), stamp, stamp, stamp)
+                 tg.get("last_name", ""), stamp, stamp, None)
             )
 
     async def health(request):
@@ -88,7 +88,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             ).fetchone()
             if not row:
                 c.execute("INSERT INTO users(user_id,username,activation_at,first_seen,last_seen) VALUES(?,?,?,?,?)", (uid, tg.get("username", ""), datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat()))
-                row = (tg.get("username", ""), 0, None, datetime.now(timezone.utc).isoformat(), 0, None, None, "en", None)
+                row = (tg.get("username", ""), 0, None, None, 0, None, None, "en", None)
             referral_total = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=?", (uid,)).fetchone()[0]
             referral_activated = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
             referral_pending = referral_total - referral_activated
@@ -130,8 +130,8 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             "referral": {
                 "link": f"https://t.me/EmpireCoin_EMPC_Bot?start=ref{uid}",
                 "total": referral_total, "activated": referral_activated,
-                "pending": referral_pending, "earned": 0,
-                "reward_per_activation": 0
+                "pending": referral_pending, "earned": referral_activated * 100,
+                "reward_per_activation": 100
             }
         })
 
@@ -282,12 +282,26 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         if not (raw_ton or friendly_ton):
             raise web.HTTPBadRequest(text="Invalid TON wallet address format")
         uid = int(tg["id"])
+        stamp = datetime.now(timezone.utc).isoformat()
         with _db(app["db_path"]) as c:
+            c.execute("BEGIN IMMEDIATE")
+            existing = c.execute("SELECT activation_at,referred_by,referral_rewarded FROM users WHERE user_id=?", (uid,)).fetchone()
             c.execute(
                 "INSERT INTO users(user_id,username,wallet) VALUES(?,?,?) "
                 "ON CONFLICT(user_id) DO UPDATE SET wallet=excluded.wallet",
                 (uid, tg.get("username", ""), wallet)
             )
+            if existing and not existing[0]:
+                c.execute("UPDATE users SET activation_at=? WHERE user_id=? AND activation_at IS NULL", (stamp, uid))
+                inviter, already_rewarded = existing[1], existing[2]
+                if inviter and not already_rewarded:
+                    c.execute("UPDATE users SET balance=balance+100 WHERE user_id=?", (int(inviter),))
+                    c.execute("INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+                              (int(inviter), 100, "referral_reward", str(uid), stamp))
+                    c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?", (uid,))
+                    pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+                    if pool_row:
+                        c.execute("UPDATE settings SET value=? WHERE key='pool'", (str(max(0,int(pool_row[0])-100)),))
         return web.json_response({"ok": True, "wallet": wallet})
 
 
