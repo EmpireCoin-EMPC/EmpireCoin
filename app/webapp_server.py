@@ -125,7 +125,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             "withdrawal_fee_percent": app["fee_percent"], "activation_fee": app["activation_fee"],
             "company_wallet": app["company_wallet"], "language": lang, "tasks": task_items,
             "referral": {
-                "link": f"https://t.me/GRM_Mining_Reward_Bot?start=ref{uid}",
+                "link": f"https://t.me/EmpireCoin_EMPC_Bot?start=ref{uid}",
                 "total": referral_total, "activated": referral_activated,
                 "pending": referral_pending, "earned": 0,
                 "reward_per_activation": 0
