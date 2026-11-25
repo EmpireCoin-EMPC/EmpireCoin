@@ -426,7 +426,7 @@ async def user_menu_actions(q: CallbackQuery):
             count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
         texts = {
             "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 100} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
-            "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 500} EMPC. پاداش دعوت در دوره بازسازی موقتاً غیرفعال است.",
+            "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 100} EMPC. پاداش دعوت در دوره بازسازی موقتاً غیرفعال است.",
             "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 500} EMPC. Реферальные награды временно отключены."
         }
         await q.message.answer(texts[lang])
