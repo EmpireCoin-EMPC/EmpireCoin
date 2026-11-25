@@ -798,6 +798,7 @@ async def task_approve(m: Message):
         return
     sid = int(parts[1])
     with db() as c:
+        c.execute("BEGIN IMMEDIATE")
         row = c.execute(
             """SELECT s.user_id,s.task_id,t.reward,s.status
                FROM task_submissions s JOIN tasks t ON t.id=s.task_id WHERE s.id=?""", (sid,)
@@ -810,18 +811,21 @@ async def task_approve(m: Message):
         pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
         pool = int(pool_row[0]) if pool_row else 0
         if already_paid:
-            c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=?", (now().isoformat(), sid))
+            c.execute("UPDATE task_submissions SET status='rejected',reviewed_at=? WHERE id=? AND status='pending'", (now().isoformat(), sid))
             await m.answer("This user already received this task reward. Submission marked rejected.")
             return
         reward = min(int(requested_reward), pool)
         if reward <= 0:
             await m.answer("Mining pool is empty; submission remains pending.")
             return
+        cur = c.execute("UPDATE task_submissions SET status='approved',reviewed_at=? WHERE id=? AND status='pending'", (now().isoformat(), sid))
+        if cur.rowcount != 1:
+            await m.answer("Submission was already processed.")
+            return
         c.execute("INSERT INTO task_claims(user_id,task_id) VALUES(?,?)", (uid, tid))
         c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (reward, uid))
         log_balance(c, uid, reward, "task_reward", tid)
         pool_change(c, -reward)
-        c.execute("UPDATE task_submissions SET status='approved',reviewed_at=? WHERE id=?", (now().isoformat(), sid))
         user_row = c.execute("SELECT lang FROM users WHERE user_id=?", (uid,)).fetchone()
     await m.answer(f"Submission #{sid} approved. {reward} EMPC credited to user {uid}.")
     lang = user_row[0] if user_row and user_row[0] in ("en","fa","ru") else "en"
