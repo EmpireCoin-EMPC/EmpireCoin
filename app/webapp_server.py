@@ -62,13 +62,13 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         stamp = datetime.now(timezone.utc).isoformat()
         with _db(app["db_path"]) as c:
             c.execute(
-                """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen)
-                   VALUES(?,?,?,?,?,?)
+                """INSERT INTO users(user_id,username,first_name,last_name,first_seen,last_seen,activation_at)
+                   VALUES(?,?,?,?,?,?,?)
                    ON CONFLICT(user_id) DO UPDATE SET
                    username=excluded.username, first_name=excluded.first_name,
                    last_name=excluded.last_name, last_seen=excluded.last_seen""",
                 (int(tg["id"]), tg.get("username", ""), tg.get("first_name", ""),
-                 tg.get("last_name", ""), stamp, stamp)
+                 tg.get("last_name", ""), stamp, stamp, stamp)
             )
 
     async def health(request):
@@ -84,8 +84,8 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                 "FROM users WHERE user_id=?", (uid,)
             ).fetchone()
             if not row:
-                c.execute("INSERT INTO users(user_id,username) VALUES(?,?)", (uid, tg.get("username", "")))
-                row = (tg.get("username", ""), 0, None, None, 0, None, None, "en", None)
+                c.execute("INSERT INTO users(user_id,username,activation_at,first_seen,last_seen) VALUES(?,?,?,?,?)", (uid, tg.get("username", ""), datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat()))
+                row = (tg.get("username", ""), 0, None, datetime.now(timezone.utc).isoformat(), 0, None, None, "en", None)
             referral_total = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=?", (uid,)).fetchone()[0]
             referral_activated = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
             referral_pending = referral_total - referral_activated
@@ -125,7 +125,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             "withdrawal_fee_percent": app["fee_percent"], "activation_fee": app["activation_fee"],
             "company_wallet": app["company_wallet"], "language": lang, "tasks": task_items,
             "referral": {
-                "link": f"https://t.me/GRM_Mining_Reward_Bot?start=ref{uid}",
+                "link": f"https://t.me/EMPC_Mining_Reward_Bot?start=ref{uid}",
                 "total": referral_total, "activated": referral_activated,
                 "pending": referral_pending, "earned": referral_activated * 500,
                 "reward_per_activation": 500
