@@ -5,14 +5,14 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message, MenuButtonCommands, WebAppInfo
+from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message, MenuButtonCommands, MenuButtonWebApp, WebAppInfo
 from dotenv import load_dotenv
 from app.webapp_server import start_webapp_server
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
-DB_PATH = os.getenv("DB_PATH", "bot.db")
+DB_PATH = os.getenv("DB_PATH", "empcoin_newbot.db")
 COMPANY_WALLET = os.getenv("GRAM_COMPANY_WALLET", "")
 HOURLY_REWARD = int(os.getenv("HOURLY_REWARD", "10"))
 POOL_START = int(os.getenv("MINING_POOL", "172000000"))
@@ -1388,21 +1388,8 @@ async def main():
     if not ADMIN_ID:
         raise RuntimeError("ADMIN_ID را در فایل .env تنظیم کنید.")
     init_db()
-    # Commands visible to ordinary users
-    await bot.set_my_commands([
-        BotCommand(command="start", description="Start the bot"),
-        BotCommand(command="balance", description="View your balance"),
-        BotCommand(command="mine", description="Hourly EMPC mining"),
-        BotCommand(command="activate", description="Submit activation transaction"),
-        BotCommand(command="setwallet", description="Set your wallet address"),
-        BotCommand(command="withdraw", description="Request a withdrawal"),
-        BotCommand(command="tasks", description="View available tasks"),
-        BotCommand(command="claim", description="Submit task evidence for review"),
-        BotCommand(command="trade", description="Request a trade"),
-        BotCommand(command="lottery_join", description="Join the lottery"),
-        BotCommand(command="checkin", description="Daily check-in"),
-        BotCommand(command="referral", description="Get your referral link"),
-    ])
+    # Keep ordinary users command menu minimal; Mini App is the primary interface.
+    await bot.set_my_commands([BotCommand(command="start", description="Start EMPC")])
 
     # Additional commands visible only in the administrator's command menu
     await bot.set_my_commands([
@@ -1431,11 +1418,12 @@ async def main():
         BotCommand(command="task_approve", description="Approve task evidence"),
         BotCommand(command="task_reject", description="Reject task evidence"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
-    # Keep Telegram's three-line menu for bot commands; expose the Mini App as a separate inline button.
-    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    # Open the Mini App from Telegram menu button when HTTPS URL is configured.
     if WEBAPP_URL:
-        print(f"[webapp] Mini App inline button enabled: {WEBAPP_URL}")
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Open EMPC", web_app=WebAppInfo(url=WEBAPP_URL)))
+        print(f"[webapp] Mini App menu button enabled: {WEBAPP_URL}")
     else:
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
         print("[webapp] WEBAPP_URL is not set; Mini App button is disabled.")
 
     await asyncio.gather(
