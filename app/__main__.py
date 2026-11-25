@@ -1135,7 +1135,7 @@ async def admin_users_list(m: Message):
     with db() as c:
         total = c.execute(f"SELECT COUNT(*) FROM users WHERE {where}", params).fetchone()[0]
         rows = c.execute(
-            f"""SELECT user_id,username,first_name,last_name,first_seen,last_seen,activation_at
+            f"""SELECT user_id,username,first_name,last_name,first_seen,last_seen,activation_at,wallet
                 FROM users WHERE {where} ORDER BY COALESCE(last_seen,first_seen) DESC, user_id DESC
                 LIMIT ? OFFSET ?""",
             (*params, page_size, (page - 1) * page_size)
@@ -1147,12 +1147,12 @@ async def admin_users_list(m: Message):
               "active":"کاربران فعال در ۳۰ روز اخیر","inactive":"کاربران غیرفعال/بدون فعالیت ثبت‌شده"}
     lines = [f"👥 {labels[mode]} | مجموع: {total} | صفحه {page}",
              "برای صفحه بعد: /users " + mode + f" {page + 1}", ""]
-    for uid, username, first_name, last_name, first_seen, last_seen, activated in rows:
+    for uid, username, first_name, last_name, first_seen, last_seen, activated, wallet in rows:
         full_name = " ".join(x for x in (first_name, last_name) if x) or "نام ثبت نشده"
         handle = f"@{username}" if username else "بدون یوزرنیم"
         seen = last_seen or "فعالیت قبلی ثبت نشده"
         status = "فعال‌سازی‌شده" if activated else "فعال‌سازی‌نشده"
-        lines.append(f"{full_name}\n{handle} | ID: {uid}\nآخرین فعالیت: {seen}\nوضعیت: {status}\n/user_info {uid}")
+        lines.append(f"{full_name}\n{handle} | ID: {uid}\nآخرین فعالیت: {seen}\nوضعیت: {status}\nکیف پول: {wallet or 'ثبت نشده'}\n/user_info {uid}")
     await m.answer("\n".join(lines)[:4000])
 
 @dp.message(Command("report"))
