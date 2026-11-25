@@ -92,7 +92,7 @@ def init_db():
             if col not in cols:
                 c.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
         c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('pool',?)", (str(POOL_START),))
-        c.execute("UPDATE users SET activation_at=COALESCE(activation_at,first_seen,last_seen) WHERE activation_at IS NULL")
+        # activation_at remains NULL until personal wallet is connected.
 
 def is_admin_user_id(user_id: int) -> bool:
     return bool(ADMIN_ID and user_id == ADMIN_ID)
@@ -182,7 +182,7 @@ def user_upsert(m: Message):
                username=excluded.username, first_name=excluded.first_name,
                last_name=excluded.last_name, last_seen=excluded.last_seen""",
             (m.from_user.id, m.from_user.username or "", m.from_user.first_name or "",
-             m.from_user.last_name or "", stamp, stamp, stamp)
+             m.from_user.last_name or "", stamp, stamp, None)
         )
 
 def log_balance(c, user_id, change_amount, reason, reference=None):
@@ -282,7 +282,7 @@ def user_upsert_from_id(user_id: int, username: str, first_name: str = "", last_
                ON CONFLICT(user_id) DO UPDATE SET
                username=excluded.username, first_name=excluded.first_name,
                last_name=excluded.last_name, last_seen=excluded.last_seen""",
-            (user_id, username, first_name, last_name, stamp, stamp, stamp)
+            (user_id, username, first_name, last_name, stamp, stamp, None)
         )
 
 @dp.callback_query(F.data.startswith("lang:"))
