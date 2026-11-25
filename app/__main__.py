@@ -112,9 +112,9 @@ def is_user_activated(user_id: int) -> bool:
 
 def activation_prompt(lang: str) -> str:
     texts = {
-        "en": f"Activation is required before mining. First set your wallet with /setwallet WALLET_ADDRESS, then pay {ACTIVATION_FEE} GRAM to the company wallet and submit /activate TX_HASH. Admin confirmation is required. Company wallet: {COMPANY_WALLET}",
-        "fa": f"پیش از ماین باید حساب فعال شود. ابتدا با /setwallet آدرس والت را ثبت کنید، سپس {ACTIVATION_FEE} GRAM به والت شرکت بفرستید و /activate TX_HASH را ارسال کنید. تأیید مدیر الزامی است. والت شرکت: {COMPANY_WALLET}",
-        "ru": f"Перед майнингом активируйте аккаунт: укажите кошелёк через /setwallet, отправьте {ACTIVATION_FEE} GRAM на кошелёк компании и пришлите /activate TX_HASH. Требуется подтверждение администратора. Кошелёк: {COMPANY_WALLET}"
+        "en": "Accounts are unlocked in the EmpireCoin test version. If this message appears, please contact the administrator.",
+        "fa": "در نسخه آزمایشی EmpireCoin حساب‌ها بدون پرداخت فعال هستند. اگر این پیام نمایش داده شد، با مدیر تماس بگیرید.",
+        "ru": "В тестовой версии EmpireCoin аккаунты открыты без оплаты. Если появилось это сообщение, обратитесь к администратору."
     }
     return texts.get(lang, texts["en"])
 
@@ -905,21 +905,14 @@ async def activation_ok(m: Message):
         if row[4]:
             await m.answer("This user is already activated."); return
         c.execute("UPDATE users SET activation_at=?,withdraw_after=NULL WHERE user_id=?",(start.isoformat(),uid))
-        inviter = row[2]
-        pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
-        available_pool = int(pool_row[0]) if pool_row else 0
-        reward_referral = bool(inviter and not row[3] and available_pool >= 500)
-        if reward_referral:
-            c.execute("UPDATE users SET balance=balance+500 WHERE user_id=?", (inviter,))
-            log_balance(c, inviter, 500, "referral_reward", uid)
-            pool_change(c, -500)
-            c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?", (uid,))
+        # Referral payouts are disabled during the EmpireCoin rebuild.
+        reward_referral = False
     await m.answer(f"Activation for user {uid} approved. 30 successful check-ins and a 17,000 EMPC minimum balance are required for withdrawal.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
-        "en": "Your activation payment is confirmed. You may now mine and use the bot. Withdrawals require 30 successful daily check-ins and a minimum balance of 17,000 EMPC.",
-        "fa": "پرداخت فعال‌سازی شما تأیید شد. اکنون می‌توانید ماین و از ربات استفاده کنید. برداشت به ۳۰ نوبت دیلی‌چک‌این موفق و حداقل موجودی ۱۷٬۰۰۰ EMPC نیاز دارد.",
-        "ru": "Платёж за активацию подтверждён. Теперь доступен майнинг. Для вывода нужны 30 успешных ежедневных отметок и баланс не менее 17 000 EMPC."
+        "en": "Your account is unlocked for the EmpireCoin test version. No activation payment is required.",
+        "fa": "حساب شما در نسخه آزمایشی EmpireCoin فعال است. پرداخت فعال‌سازی لازم نیست.",
+        "ru": "Ваш аккаунт открыт в тестовой версии EmpireCoin. Оплата активации не требуется."
     }
     await bot.send_message(uid, notices[lang])
     if reward_referral:
