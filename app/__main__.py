@@ -19,6 +19,7 @@ POOL_START = int(os.getenv("MINING_POOL", "172000000"))
 FEE_PERCENT = int(os.getenv("WITHDRAWAL_FEE_PERCENT", "10"))
 ACTIVATION_FEE = os.getenv("ACTIVATION_FEE_GRAM", "0.1")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()
+SUPPORT_BOT_URL = os.getenv("SUPPORT_BOT_URL", "").strip()
 WEBAPP_PORT = int(os.getenv("WEBAPP_PORT", os.getenv("PORT", "8080")))
 WAIT_DAYS = int(os.getenv("ACTIVATION_WAIT_DAYS", "30"))
 
@@ -124,8 +125,9 @@ def activation_keyboard(lang):
     rows = [
         [InlineKeyboardButton(text=activate_label, callback_data="user:activate")],
         [InlineKeyboardButton(text=info_label, callback_data="user:info")],
-        [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")]
     ]
+    if SUPPORT_BOT_URL:
+        rows.append([InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url=SUPPORT_BOT_URL)])
     if WEBAPP_URL:
         rows.append([InlineKeyboardButton(text="🚀 Open EMPC Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -236,7 +238,7 @@ def language_keyboard():
         [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en")],
         [InlineKeyboardButton(text="🇮🇷 فارسی", callback_data="lang:fa")],
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
-        [InlineKeyboardButton(text="🆘 پشتیبانی | Support | Поддержка", url="https://t.me/+R2xCVMxYrlg0Zjk1")],
+
     ])
 
 MENU_LABELS = {
@@ -255,8 +257,9 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text=a[9], callback_data="user:checkin"), InlineKeyboardButton(text=a[10], callback_data="user:referral")],
         [InlineKeyboardButton(text=a[11], callback_data="user:info")],
         [InlineKeyboardButton(text=a[8], callback_data="user:language")],
-        [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")],
     ]
+    if SUPPORT_BOT_URL:
+        rows.append([InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url=SUPPORT_BOT_URL)])
     if WEBAPP_URL:
         rows.append([InlineKeyboardButton(text="🚀 Open EMPC Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
