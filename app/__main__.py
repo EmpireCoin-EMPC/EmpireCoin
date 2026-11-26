@@ -19,7 +19,7 @@ POOL_START = int(os.getenv("MINING_POOL", "172000000"))
 FEE_PERCENT = int(os.getenv("WITHDRAWAL_FEE_PERCENT", "10"))
 ACTIVATION_FEE = os.getenv("ACTIVATION_FEE_GRAM", "0.1")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()
-SUPPORT_BOT_URL = os.getenv("SUPPORT_BOT_URL", "https://t.me/EmpireCoinSupportBot").strip()
+SUPPORT_BOT_URL = "https://t.me/+KeOtb0utmu4wMWZl"
 WEBAPP_PORT = int(os.getenv("WEBAPP_PORT", os.getenv("PORT", "8080")))
 WAIT_DAYS = int(os.getenv("ACTIVATION_WAIT_DAYS", "30"))
 
