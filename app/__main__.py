@@ -236,7 +236,6 @@ def language_keyboard():
         [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en")],
         [InlineKeyboardButton(text="🇮🇷 فارسی", callback_data="lang:fa")],
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
-        [InlineKeyboardButton(text="📘 آموزش ربات | Bot tutorial | Инструкция", url="https://t.me/grm_reward_official/65")],
         [InlineKeyboardButton(text="🆘 پشتیبانی | Support | Поддержка", url="https://t.me/+R2xCVMxYrlg0Zjk1")],
     ])
 
@@ -604,8 +603,8 @@ async def start(m: Message):
                 c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL",
                           (inviter, m.from_user.id))
     prompts = {
-        "en": "Welcome to EMPC Mining!\nPlease choose your language to continue.\n\n📘 Before getting started, please watch our simple bot tutorial using the button below.",
-        "fa": "به ربات EMPC Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید.\n\n📘 لطفاً پیش از شروع فعالیت، حتماً آموزش ساده ربات را از دکمه زیر ببینید.",
+        "en": "Welcome to EMPC Mining!\nPlease choose your language to continue.",
+        "fa": "به ربات EMPC Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید.",
         "ru": "Добро пожаловать в EMPC Mining!\nВыберите язык, чтобы продолжить.\n\n📘 Перед началом работы обязательно посмотрите краткую инструкцию по боту, нажав кнопку ниже."
     }
     await m.answer(prompts.get(get_user_lang(m.from_user.id), "en"), reply_markup=language_keyboard())
