@@ -9,8 +9,12 @@ A rebuild of the previous experimental GRM bot around EmpireCoin (EMPC), the fix
 - Total supply: 313,000,000 EMPC
 - Decimals: 9
 - Mintable: No
-- Jetton master: `EQA1Vk075IL1IVGlyLGeOfgYKdDudLA3dCK9Nq2KhT1n-0dR`
+- Jetton master: `EQA1Vk075IL1IVGlyGeOfgYKdDudLA3dCK9Nq2KhT1n-0dR`
 - Official channel: https://t.me/empirecoinofficial
+
+## Token Allocation & Transparency
+
+See the [EMPC Token Allocation & Transparency Report](TOKEN_ALLOCATION.md) for the project's allocation breakdown, wallet references, transaction references, and liquidity-reserve details.
 
 ## Rebuild plan
 The previous bot is an experimental codebase. Rebranding and feature changes are being staged; the existing runtime must not be treated as EMPC-ready until the code, database, payout flow, and server deployment have been reviewed and tested.
