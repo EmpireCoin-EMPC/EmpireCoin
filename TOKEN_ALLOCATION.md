@@ -86,7 +86,7 @@ This portion is reported as retained in the project's main wallet for future liq
 ## Official Project Links
 
 - **Official Telegram:** https://t.me/empirecoinofficial
-- **Jetton Master:** `EQA1Vk075IL1IVGlyGGeOfgYKdDudLA3dCK9Nq2KhT1n-0dR`
+- **Jetton Master:** `EQA1Vk075IL1IVGlyGeOfgYKdDudLA3dCK9Nq2KhT1n-0dR`
 
 ---
 
