@@ -27,7 +27,10 @@ def _telegram_user(request, bot_token):
         raise web.HTTPUnauthorized(text="Telegram authorization is required")
     init_data = raw[7:]
     try:
-        pairs = dict(parse_qsl(init_data, keep_blank_values=True, strict_parsing=True))
+        parsed = parse_qsl(init_data, keep_blank_values=True, strict_parsing=True)
+        if len(parsed) != len({k for k, _ in parsed}):
+            raise ValueError("duplicate init-data keys")
+        pairs = dict(parsed)
         received_hash = pairs.pop("hash")
         auth_date = int(pairs["auth_date"])
         user = json.loads(pairs["user"])
@@ -68,7 +71,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
                    username=excluded.username, first_name=excluded.first_name,
                    last_name=excluded.last_name, last_seen=excluded.last_seen""",
                 (int(tg["id"]), tg.get("username", ""), tg.get("first_name", ""),
-                 tg.get("last_name", ""), stamp, stamp, stamp)
+                 tg.get("last_name", ""), stamp, stamp, None)
             )
 
     async def health(request):
@@ -85,7 +88,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             ).fetchone()
             if not row:
                 c.execute("INSERT INTO users(user_id,username,activation_at,first_seen,last_seen) VALUES(?,?,?,?,?)", (uid, tg.get("username", ""), datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat(), datetime.now(timezone.utc).isoformat()))
-                row = (tg.get("username", ""), 0, None, datetime.now(timezone.utc).isoformat(), 0, None, None, "en", None)
+                row = (tg.get("username", ""), 0, None, None, 0, None, None, "en", None)
             referral_total = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=?", (uid,)).fetchone()[0]
             referral_activated = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
             referral_pending = referral_total - referral_activated
@@ -117,7 +120,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         return web.json_response({
             "user": {"id": uid, "name": tg.get("first_name", row[0] or "User"), "username": tg.get("username", "")},
             "balance": int(row[1] or 0), "pool": pool, "wallet": row[2] or "",
-            "activated": bool(row[3]), "activation_pending": bool(row[8]) and not bool(row[3]),
+            "activated": bool(row[2]) and bool(row[3]), "activation_pending": bool(row[8]) and not (bool(row[2]) and bool(row[3])),
             "checkin_day": int(row[4] or 0), "last_checkin_date": row[5],
             "checkin_done_today": row[5] == now.date().isoformat(),
             "mine_ready": mine_ready, "mine_seconds_left": max(0, int(3600 - (now-last_mine).total_seconds())) if last_mine else 0,
@@ -125,10 +128,10 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             "withdrawal_fee_percent": app["fee_percent"], "activation_fee": app["activation_fee"],
             "company_wallet": app["company_wallet"], "language": lang, "tasks": task_items,
             "referral": {
-                "link": f"https://t.me/GRM_Mining_Reward_Bot?start=ref{uid}",
+                "link": f"https://t.me/EmpireCoin_EMPC_Bot?start=ref{uid}",
                 "total": referral_total, "activated": referral_activated,
-                "pending": referral_pending, "earned": 0,
-                "reward_per_activation": 0
+                "pending": referral_pending, "earned": referral_activated * 100,
+                "reward_per_activation": 100
             }
         })
 
@@ -154,7 +157,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             day += 1
             pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
             pool = int(pool_row[0]) if pool_row else 0
-            reward = min(day * 50, pool)
+            reward = min(100, pool)
             if reward <= 0:
                 raise web.HTTPConflict(text="Reward pool is empty")
             c.execute("UPDATE users SET checkin_day=?,last_checkin_date=?,balance=balance+? WHERE user_id=?",
@@ -249,6 +252,21 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             raise web.HTTPServiceUnavailable(text="Your request could not be delivered to the administrator. The debit has been reversed; please try again.") from exc
         return web.json_response({"ok": True, "request_id": request_id, "amount": amount, "fee": fee, "net": net})
 
+    async def history(request):
+        tg = _telegram_user(request, app["bot_token"])
+        uid = int(tg["id"])
+        with _db(app["db_path"]) as c:
+            withdrawals = c.execute(
+                "SELECT id,amount,fee,net,wallet,status,tx_hash,created_at FROM withdrawals WHERE user_id=? ORDER BY id DESC LIMIT 10", (uid,)
+            ).fetchall()
+            transactions = c.execute(
+                "SELECT id,change_amount,reason,reference,created_at FROM balance_history WHERE user_id=? ORDER BY id DESC LIMIT 10", (uid,)
+            ).fetchall()
+        items = [{"kind":"withdrawal","id":r[0],"amount":r[1],"fee":r[2],"net":r[3],"wallet":r[4],"status":r[5],"tx_hash":r[6],"created_at":r[7]} for r in withdrawals]
+        items += [{"kind":"balance","id":r[0],"change":r[1],"reason":r[2],"reference":r[3],"created_at":r[4]} for r in transactions]
+        items.sort(key=lambda x:x.get("created_at") or "", reverse=True)
+        return web.json_response({"items":items[:10]})
+
     async def save_wallet(request):
         tg = _user(request)
         try:
@@ -264,12 +282,29 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
         if not (raw_ton or friendly_ton):
             raise web.HTTPBadRequest(text="Invalid TON wallet address format")
         uid = int(tg["id"])
+        stamp = datetime.now(timezone.utc).isoformat()
         with _db(app["db_path"]) as c:
+            c.execute("BEGIN IMMEDIATE")
+            existing = c.execute("SELECT activation_at,referred_by,referral_rewarded,wallet FROM users WHERE user_id=?", (uid,)).fetchone()
+            duplicate = c.execute("SELECT user_id FROM users WHERE wallet=? AND user_id<>? LIMIT 1", (wallet, uid)).fetchone()
+            if duplicate:
+                raise web.HTTPConflict(text="This TON wallet is already connected to another account")
             c.execute(
                 "INSERT INTO users(user_id,username,wallet) VALUES(?,?,?) "
                 "ON CONFLICT(user_id) DO UPDATE SET wallet=excluded.wallet",
                 (uid, tg.get("username", ""), wallet)
             )
+            if existing and not existing[0]:
+                c.execute("UPDATE users SET activation_at=? WHERE user_id=? AND activation_at IS NULL", (stamp, uid))
+                inviter, already_rewarded = existing[1], existing[2]
+                if inviter and not already_rewarded:
+                    c.execute("UPDATE users SET balance=balance+100 WHERE user_id=?", (int(inviter),))
+                    c.execute("INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+                              (int(inviter), 100, "referral_reward", str(uid), stamp))
+                    c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?", (uid,))
+                    pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+                    if pool_row:
+                        c.execute("UPDATE settings SET value=? WHERE key='pool'", (str(max(0,int(pool_row[0])-100)),))
         return web.json_response({"ok": True, "wallet": wallet})
 
 
@@ -360,6 +395,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
     app.router.add_post("/api/checkin", checkin)
     app.router.add_post("/api/mine", mine)
     app.router.add_post("/api/language", save_language)
+    app.router.add_get("/api/history", history)
     app.router.add_post("/api/wallet", save_wallet)
     app.router.add_post("/api/withdraw", withdraw_request)
     app.router.add_post("/api/task_submit", task_submit)

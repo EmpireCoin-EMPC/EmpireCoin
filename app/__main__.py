@@ -5,20 +5,21 @@ from datetime import datetime, timedelta, timezone
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import Command, CommandStart
-from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message, MenuButtonCommands, WebAppInfo
+from aiogram.types import BotCommand, BotCommandScopeChat, CallbackQuery, CopyTextButton, InlineKeyboardButton, InlineKeyboardMarkup, Message, MenuButtonCommands, MenuButtonWebApp, WebAppInfo
 from dotenv import load_dotenv
 from app.webapp_server import start_webapp_server
 
 load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN", "")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0") or 0)
-DB_PATH = os.getenv("DB_PATH", "bot.db")
+DB_PATH = os.getenv("DB_PATH", "empcoin_newbot.db")
 COMPANY_WALLET = os.getenv("GRAM_COMPANY_WALLET", "")
 HOURLY_REWARD = int(os.getenv("HOURLY_REWARD", "10"))
 POOL_START = int(os.getenv("MINING_POOL", "172000000"))
 FEE_PERCENT = int(os.getenv("WITHDRAWAL_FEE_PERCENT", "10"))
 ACTIVATION_FEE = os.getenv("ACTIVATION_FEE_GRAM", "0.1")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "").strip()
+SUPPORT_BOT_URL = "https://t.me/+KeOtb0utmu4wMWZl"
 WEBAPP_PORT = int(os.getenv("WEBAPP_PORT", os.getenv("PORT", "8080")))
 WAIT_DAYS = int(os.getenv("ACTIVATION_WAIT_DAYS", "30"))
 
@@ -49,7 +50,7 @@ def init_db():
         c.execute("""CREATE TABLE IF NOT EXISTS withdrawals(
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER, amount INTEGER,
             fee INTEGER, net INTEGER, wallet TEXT, status TEXT DEFAULT 'pending',
-            tx_hash TEXT, created_at TEXT)""")
+            tx_hash TEXT, created_at TEXT, reviewed_at TEXT)""")
         c.execute("""CREATE TABLE IF NOT EXISTS tasks(
             id INTEGER PRIMARY KEY AUTOINCREMENT, title TEXT, reward INTEGER,
             active INTEGER DEFAULT 1)""")
@@ -92,7 +93,7 @@ def init_db():
             if col not in cols:
                 c.execute(f"ALTER TABLE users ADD COLUMN {col} {definition}")
         c.execute("INSERT OR IGNORE INTO settings(key,value) VALUES('pool',?)", (str(POOL_START),))
-        c.execute("UPDATE users SET activation_at=COALESCE(activation_at,first_seen,last_seen) WHERE activation_at IS NULL")
+        # Wallet connection is the activation criterion; clear legacy auto-activation for users without a wallet.\n        c.execute("UPDATE users SET activation_at=NULL WHERE wallet IS NULL OR wallet=''")
 
 def is_admin_user_id(user_id: int) -> bool:
     return bool(ADMIN_ID and user_id == ADMIN_ID)
@@ -111,11 +112,7 @@ def is_user_activated(user_id: int) -> bool:
     return bool(row and row[0])
 
 def activation_prompt(lang: str) -> str:
-    texts = {
-        "en": "Accounts are unlocked in the EmpireCoin test version. If this message appears, please contact the administrator.",
-        "fa": "در نسخه آزمایشی EmpireCoin حساب‌ها بدون پرداخت فعال هستند. اگر این پیام نمایش داده شد، با مدیر تماس بگیرید.",
-        "ru": "В тестовой версии EmpireCoin аккаунты открыты без оплаты. Если появилось это сообщение, обратитесь к администратору."
-    }
+    texts = {"en": "Connect your TON wallet in the Mini App to activate your account.", "fa": "برای فعال‌سازی حساب، کیف پول TON خود را در مینی‌اپ متصل کنید.", "ru": "Подключите TON-кошелёк в Mini App для активации аккаунта."}
     return texts.get(lang, texts["en"])
 
 def activation_keyboard(lang):
@@ -128,16 +125,17 @@ def activation_keyboard(lang):
     rows = [
         [InlineKeyboardButton(text=activate_label, callback_data="user:activate")],
         [InlineKeyboardButton(text=info_label, callback_data="user:info")],
-        [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")]
     ]
+    if SUPPORT_BOT_URL:
+        rows.append([InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url=SUPPORT_BOT_URL)])
     if WEBAPP_URL:
         rows.append([InlineKeyboardButton(text="🚀 Open EMPC Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 def referral_text(lang, link, count, total):
     texts = {
-        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
-        "fa": f"لینک دعوت: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {total} EMPC. پاداش ریفرال در زمان بازسازی سیستم EmpireCoin موقتاً غیرفعال است.",
+        "en": f"Referral link: {link}\nSuccessful referrals: {count}\nEarned: {total} EMPC (100 EMPC per activated referral).",
+        "fa": f"لینک دعوت: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {total} EMPC. هر دعوت موفق (پس از اتصال کیف پول و فعال شدن کاربر) ۱۰۰ EMPC پاداش دارد.",
         "ru": f"Реферальная ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {total} EMPC. Реферальные награды временно отключены во время обновления EmpireCoin."
     }
     return texts.get(lang, texts["en"])
@@ -154,7 +152,7 @@ async def daily_checkin(user_id: int, lang: str) -> str:
         if int(row[1] or 0) >= DAILY_CHECKIN_DAYS:
             return {"en":"You have completed all 30 check-ins. The withdrawal check-in requirement is satisfied.", "fa":"هر ۳۰ نوبت دیلی‌چک‌این را تکمیل کرده‌اید و شرط چک‌این برداشت انجام شده است.", "ru":"Все 30 отметок завершены. Условие для вывода выполнено."}[lang]
         day = int(row[1] or 0) + 1
-        reward = day * 50
+        reward = 100
         pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
         pool = int(pool_row[0]) if pool_row else 0
         reward = min(reward, pool)
@@ -182,7 +180,7 @@ def user_upsert(m: Message):
                username=excluded.username, first_name=excluded.first_name,
                last_name=excluded.last_name, last_seen=excluded.last_seen""",
             (m.from_user.id, m.from_user.username or "", m.from_user.first_name or "",
-             m.from_user.last_name or "", stamp, stamp, stamp)
+             m.from_user.last_name or "", stamp, stamp, None)
         )
 
 def log_balance(c, user_id, change_amount, reason, reference=None):
@@ -240,8 +238,7 @@ def language_keyboard():
         [InlineKeyboardButton(text="🇬🇧 English", callback_data="lang:en")],
         [InlineKeyboardButton(text="🇮🇷 فارسی", callback_data="lang:fa")],
         [InlineKeyboardButton(text="🇷🇺 Русский", callback_data="lang:ru")],
-        [InlineKeyboardButton(text="📘 آموزش ربات | Bot tutorial | Инструкция", url="https://t.me/grm_reward_official/65")],
-        [InlineKeyboardButton(text="🆘 پشتیبانی | Support | Поддержка", url="https://t.me/+R2xCVMxYrlg0Zjk1")],
+
     ])
 
 MENU_LABELS = {
@@ -260,8 +257,9 @@ def user_menu_keyboard(lang="en"):
         [InlineKeyboardButton(text=a[9], callback_data="user:checkin"), InlineKeyboardButton(text=a[10], callback_data="user:referral")],
         [InlineKeyboardButton(text=a[11], callback_data="user:info")],
         [InlineKeyboardButton(text=a[8], callback_data="user:language")],
-        [InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url="https://t.me/+R2xCVMxYrlg0Zjk1")],
     ]
+    if SUPPORT_BOT_URL:
+        rows.append([InlineKeyboardButton(text={"en":"🆘 Support","fa":"🆘 پشتیبانی","ru":"🆘 Поддержка"}.get(lang,"🆘 Support"), url=SUPPORT_BOT_URL)])
     if WEBAPP_URL:
         rows.append([InlineKeyboardButton(text="🚀 Open EMPC Mini App", web_app=WebAppInfo(url=WEBAPP_URL))])
     return InlineKeyboardMarkup(inline_keyboard=rows)
@@ -282,7 +280,7 @@ def user_upsert_from_id(user_id: int, username: str, first_name: str = "", last_
                ON CONFLICT(user_id) DO UPDATE SET
                username=excluded.username, first_name=excluded.first_name,
                last_name=excluded.last_name, last_seen=excluded.last_seen""",
-            (user_id, username, first_name, last_name, stamp, stamp, stamp)
+            (user_id, username, first_name, last_name, stamp, stamp, None)
         )
 
 @dp.callback_query(F.data.startswith("lang:"))
@@ -323,7 +321,7 @@ USER_TEXT = {
   "wallet":"To save your wallet, send:\n/setwallet WALLET_ADDRESS",
   "withdraw":"To request a withdrawal, send:\n/withdraw AMOUNT\nWithdrawals are available 30 days after activation approval.",
   "trade":"To request a trade, send:\n/trade TRADE_DETAILS",
-  "activate":"Activation payments are disabled in the test version. Mining accounts are unlocked for testing.",
+  "activate":"Connect your TON wallet in the Mini App to activate your account.",
   "invalid":"Unknown option.", "copy_company":"📋 Copy company wallet", "copy_wallet":"📋 Copy my wallet"
  },
  "fa": {
@@ -336,7 +334,7 @@ USER_TEXT = {
   "wallet":"برای ثبت کیف پول بفرستید:\n/setwallet WALLET_ADDRESS",
   "withdraw":"برای درخواست برداشت بفرستید:\n/withdraw AMOUNT\nبرداشت ۳۰ روز پس از تأیید فعال‌سازی ممکن است.",
   "trade":"برای درخواست معامله بفرستید:\n/trade TRADE_DETAILS",
-  "activate":"پرداخت فعال‌سازی در نسخه آزمایشی غیرفعال است؛ حساب‌ها برای آزمایش باز هستند.",
+  "activate":"برای فعال‌سازی حساب، کیف پول TON خود را در مینی‌اپ متصل کنید.",
   "invalid":"گزینه نامعتبر است.", "copy_company":"📋 کپی آدرس کیف پول شرکت", "copy_wallet":"📋 کپی آدرس کیف پول من"
  },
  "ru": {
@@ -349,7 +347,7 @@ USER_TEXT = {
   "wallet":"Чтобы сохранить кошелёк, отправьте:\n/setwallet WALLET_ADDRESS",
   "withdraw":"Чтобы запросить вывод, отправьте:\n/withdraw AMOUNT\nВывод доступен через 30 дней после подтверждения активации.",
   "trade":"Чтобы запросить сделку, отправьте:\n/trade TRADE_DETAILS",
-  "activate":"Платежи за активацию отключены в тестовой версии; аккаунты открыты для тестирования.",
+  "activate":"Подключите TON-кошелёк в Mini App для активации аккаунта.",
   "invalid":"Неизвестная команда.", "copy_company":"📋 Копировать кошелёк компании", "copy_wallet":"📋 Копировать мой кошелёк"
  }
 }
@@ -405,9 +403,9 @@ async def user_menu_actions(q: CallbackQuery):
         return
     if action == "info":
         info_texts = {
-            "en": "EMPC MINING — PROJECT INFORMATION\nToken: EMPC | Network: TON\n\n\n\nActivation payments are disabled in this test rebuild. Accounts are unlocked for testing.\n\nDaily check-in: 30 successful check-ins. Reward starts at 50 EMPC and increases by 50 EMPC per successful check-in, reaching 1,500 EMPC on check-in 30. Missed days pause progress; the next check-in continues the sequence.\n\nWithdrawals: minimum 17,000 EMPC, 10% fee, 30 successful check-ins and admin review required.\nReferral rewards are temporarily disabled during this rebuild.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 EMPC allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
-            "fa": "اطلاعات پروژه EMPC MINING\nتوکن: EMPC | شبکه: TON\n\n\n\nپرداخت فعال‌سازی در نسخه آزمایشی بازسازی‌شده غیرفعال است. حساب‌ها برای آزمایش باز هستند.\n\nدیلی‌چک‌این: ۳۰ نوبت موفق لازم است. پاداش از ۵۰ EMPC شروع می‌شود و در هر نوبت موفق ۵۰ EMPC افزایش می‌یابد تا نوبت ۳۰ با ۱٬۵۰۰ EMPC. روزهای جاافتاده پیشرفت را متوقف می‌کنند؛ چک‌این بعدی از شماره بعدی ادامه می‌یابد.\n\nبرداشت: حداقل ۱۷٬۰۰۰ EMPC، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nپاداش دعوت دوستان در دوره بازسازی موقتاً غیرفعال است.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ EMPC مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
-            "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ EMPC MINING\nТокен: EMPC | Сеть: TON\n\n\n\nПлатежи за активацию отключены в тестовой версии. Аккаунты открыты для тестирования.\n\nЕжедневные отметки: необходимо 30 успешных отметок. Награда начинается с 50 EMPC и увеличивается на 50 EMPC за каждую успешную отметку, достигая 1 500 EMPC на отметке 30. Пропуск дня приостанавливает прогресс; следующая отметка продолжает последовательность.\n\nВывод: минимум 17 000 EMPC, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРеферальные награды временно отключены.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 EMPC — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
+            "en": "EMPC MINING — PROJECT INFORMATION\nToken: EMPC | Network: TON\n\nAccount activation requires connecting your personal TON wallet. No activation payment is required.\n\nDaily check-in: fixed reward of 100 EMPC per successful check-in. Rewards do not increase over time. 30 successful check-ins total 3,000 EMPC.\n\nWithdrawals: minimum 17,000 EMPC, 10% fee, 30 successful check-ins and admin review required.\nReferral rewards: 100 EMPC per invited user who connects a TON wallet.\nTasks, trades and lotteries follow project rules and admin review.\n\nThe 172,000,000 EMPC allocation is the mining/reward pool, not a claim about total token supply. Payments are manually verified; this bot does not automatically verify on-chain payments or execute on-chain withdrawals. No independent audit, legal certification, token decimals or total supply is claimed. Never share your seed phrase or private key.",
+            "fa": "اطلاعات پروژه EMPC MINING\nتوکن: EMPC | شبکه: TON\n\nفعال‌سازی حساب فقط با اتصال کیف پول شخصی TON انجام می‌شود و پرداخت فعال‌سازی لازم نیست.\n\nدیلی‌چک‌این: در هر چک‌این موفق، پاداش ثابت ۱۰۰ EMPC است و افزایش تدریجی ندارد. مجموع ۳۰ چک‌این موفق برابر ۳٬۰۰۰ EMPC است.\n\nبرداشت: حداقل ۱۷٬۰۰۰ EMPC، کارمزد ۱۰٪، تکمیل ۳۰ چک‌این موفق و بررسی ادمین الزامی است.\nپاداش دعوت دوستان: ۱۰۰ EMPC به ازای هر کاربر دعوت‌شده پس از اتصال کیف پول و فعال‌سازی.\nوظایف، معاملات و قرعه‌کشی تابع قوانین پروژه و بررسی ادمین هستند.\n\nتخصیص ۱۷۲٬۰۰۰٬۰۰۰ EMPC مربوط به استخر ماینینگ/پاداش است و به معنی عرضه کل توکن نیست. پرداخت‌ها دستی تأیید می‌شوند؛ ربات پرداخت‌های زنجیره‌ای را خودکار بررسی یا برداشت‌ها را روی بلاک‌چین اجرا نمی‌کند. در این متن ادعای حسابرسی مستقل، تأیید قانونی، تعداد اعشار یا عرضه کل مطرح نشده است. عبارت بازیابی و کلید خصوصی خود را هرگز به کسی ندهید.",
+            "ru": "ИНФОРМАЦИЯ О ПРОЕКТЕ EMPC MINING\nТокен: EMPC | Сеть: TON\n\nДля активации подключите личный TON-кошелёк. Платёж за активацию не требуется.\n\nЕжедневная отметка: фиксированная награда 100 EMPC за каждую успешную отметку, без увеличения. 30 успешных отметок дают 3 000 EMPC.\n\nВывод: минимум 17 000 EMPC, комиссия 10%, 30 успешных отметок и проверка администратора обязательны.\nРеферальные награды временно отключены.\nЗадания, сделки и лотереи регулируются правилами проекта и проверяются администратором.\n\n172 000 000 EMPC — это пул майнинга/наград, а не заявленный общий объём эмиссии. Платежи проверяются вручную; бот не проверяет транзакции автоматически и не выполняет выводы непосредственно в блокчейне. Независимый аудит, юридическая сертификация, число десятичных знаков и общий объём эмиссии здесь не заявляются. Никогда не передавайте seed-фразу или приватный ключ."
         }
         await q.message.answer(info_texts[lang])
         await q.answer()
@@ -426,8 +424,8 @@ async def user_menu_actions(q: CallbackQuery):
         with db() as c:
             count = c.execute("SELECT COUNT(*) FROM users WHERE referred_by=? AND referral_rewarded=1", (uid,)).fetchone()[0]
         texts = {
-            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 100} EMPC (100 EMPC per successful referral; payouts temporarily disabled during rebuild).",
-            "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 100} EMPC. پاداش دعوت در دوره بازسازی موقتاً غیرفعال است.",
+            "en": f"Your referral link: {link}\nSuccessful referrals: {count}\nRewards earned: {count * 100} EMPC (100 EMPC per activated referral).",
+            "fa": f"لینک دعوت شما: {link}\nدعوت‌های موفق: {count}\nمجموع پاداش: {count * 100} EMPC. هر دعوت موفق پس از اتصال کیف پول و فعال شدن کاربر، ۱۰۰ EMPC پاداش دارد.",
             "ru": f"Ваша ссылка: {link}\nУспешные приглашения: {count}\nНачислено: {count * 100} EMPC (100 EMPC за приглашение; начисления временно отключены)."
         }
         await q.message.answer(texts[lang])
@@ -608,8 +606,8 @@ async def start(m: Message):
                 c.execute("UPDATE users SET referred_by=? WHERE user_id=? AND referred_by IS NULL",
                           (inviter, m.from_user.id))
     prompts = {
-        "en": "Welcome to EMPC Mining!\nPlease choose your language to continue.\n\n📘 Before getting started, please watch our simple bot tutorial using the button below.",
-        "fa": "به ربات EMPC Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید.\n\n📘 لطفاً پیش از شروع فعالیت، حتماً آموزش ساده ربات را از دکمه زیر ببینید.",
+        "en": "Welcome to EMPC Mining!\nPlease choose your language to continue.",
+        "fa": "به ربات EMPC Mining خوش آمدید!\nبرای ادامه، زبان خود را انتخاب کنید.",
         "ru": "Добро пожаловать в EMPC Mining!\nВыберите язык, чтобы продолжить.\n\n📘 Перед началом работы обязательно посмотрите краткую инструкцию по боту, нажав кнопку ниже."
     }
     await m.answer(prompts.get(get_user_lang(m.from_user.id), "en"), reply_markup=language_keyboard())
@@ -652,7 +650,7 @@ async def mine(m: Message):
 @dp.message(Command("activate"))
 async def activate(m: Message):
     lang = get_user_lang(m.from_user.id)
-    await m.answer({"en":"Activation payments are disabled in the EmpireCoin test version.", "fa":"پرداخت فعال‌سازی در نسخه آزمایشی EmpireCoin غیرفعال است.", "ru":"Платежи за активацию отключены в тестовой версии EmpireCoin."}[lang])
+    await m.answer(activation_prompt(lang))
 
 @dp.message(Command("setwallet"))
 async def setwallet(m: Message):
@@ -699,7 +697,16 @@ async def withdraw(m: Message):
         req_id = cur.lastrowid
     await m.answer(uct(lang, "withdraw_created", id=req_id, amount=amount, percent=FEE_PERCENT, fee=fee, net=net))
     if ADMIN_ID:
-        await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\nUser: {m.from_user.id}\nGross: {amount}\nNet: {net}\nWallet: {u[1]}\nReview: /pending")
+        try:
+            await bot.send_message(ADMIN_ID, f"Withdrawal #{req_id}\nUser: {m.from_user.id}\nGross: {amount}\nNet: {net}\nWallet: {u[1]}\nReview: /pending")
+        except Exception:
+            with db() as c:
+                c.execute("BEGIN IMMEDIATE")
+                cur = c.execute("UPDATE withdrawals SET status='rejected',reviewed_at=? WHERE id=? AND status='pending'", (now().isoformat(), req_id))
+                if cur.rowcount:
+                    c.execute("UPDATE users SET balance=balance+? WHERE user_id=?", (amount, m.from_user.id))
+                    log_balance(c, m.from_user.id, amount, "withdrawal_notification_failed_refund", req_id)
+            await m.answer("Admin notification failed. The withdrawal was reversed and your balance restored.")
 
 @dp.message(Command("tasks"))
 async def tasks(m: Message):
@@ -913,18 +920,28 @@ async def activation_ok(m: Message):
         return
     uid=int(p[1]); start=now(); end=start+timedelta(days=WAIT_DAYS)
     with db() as c:
-        row=c.execute("SELECT activation_tx,lang,referred_by,referral_rewarded,activation_at FROM users WHERE user_id=?",(uid,)).fetchone()
+        row=c.execute("SELECT activation_tx,lang,referred_by,referral_rewarded,activation_at,wallet FROM users WHERE user_id=?",(uid,)).fetchone()
         if not row or not row[0]:
             await m.answer("No activation transaction found for this user."); return
         if row[4]:
             await m.answer("This user is already activated."); return
+        if not row[5]:
+            await m.answer("User must connect a TON wallet before activation and referral reward."); return
         c.execute("UPDATE users SET activation_at=?,withdraw_after=NULL WHERE user_id=?",(start.isoformat(),uid))
-        # Referral payouts are disabled during the EmpireCoin rebuild.
-        reward_referral = False
+        inviter = row[2]
+        reward_referral = bool(inviter and not row[3])
+        if reward_referral:
+            c.execute("UPDATE users SET balance=balance+100 WHERE user_id=?",(int(inviter),))
+            c.execute("INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+                      (int(inviter),100,"referral_reward",str(uid),start.isoformat()))
+            c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?",(uid,))
+            pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+            if pool_row:
+                c.execute("UPDATE settings SET value=? WHERE key='pool'",(str(max(0,int(pool_row[0])-100)),))
     await m.answer(f"Activation for user {uid} approved. 30 successful check-ins and a 17,000 EMPC minimum balance are required for withdrawal.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
-        "en": "Your account is unlocked for the EmpireCoin test version. No activation payment is required.",
+        "en": "Connect your personal TON wallet to activate your account.",
         "fa": "حساب شما در نسخه آزمایشی EmpireCoin فعال است. پرداخت فعال‌سازی لازم نیست.",
         "ru": "Ваш аккаунт открыт в тестовой версии EmpireCoin. Оплата активации не требуется."
     }
@@ -1126,7 +1143,7 @@ async def admin_users_list(m: Message):
     with db() as c:
         total = c.execute(f"SELECT COUNT(*) FROM users WHERE {where}", params).fetchone()[0]
         rows = c.execute(
-            f"""SELECT user_id,username,first_name,last_name,first_seen,last_seen,activation_at
+            f"""SELECT user_id,username,first_name,last_name,first_seen,last_seen,activation_at,wallet
                 FROM users WHERE {where} ORDER BY COALESCE(last_seen,first_seen) DESC, user_id DESC
                 LIMIT ? OFFSET ?""",
             (*params, page_size, (page - 1) * page_size)
@@ -1138,12 +1155,12 @@ async def admin_users_list(m: Message):
               "active":"کاربران فعال در ۳۰ روز اخیر","inactive":"کاربران غیرفعال/بدون فعالیت ثبت‌شده"}
     lines = [f"👥 {labels[mode]} | مجموع: {total} | صفحه {page}",
              "برای صفحه بعد: /users " + mode + f" {page + 1}", ""]
-    for uid, username, first_name, last_name, first_seen, last_seen, activated in rows:
+    for uid, username, first_name, last_name, first_seen, last_seen, activated, wallet in rows:
         full_name = " ".join(x for x in (first_name, last_name) if x) or "نام ثبت نشده"
         handle = f"@{username}" if username else "بدون یوزرنیم"
         seen = last_seen or "فعالیت قبلی ثبت نشده"
         status = "فعال‌سازی‌شده" if activated else "فعال‌سازی‌نشده"
-        lines.append(f"{full_name}\n{handle} | ID: {uid}\nآخرین فعالیت: {seen}\nوضعیت: {status}\n/user_info {uid}")
+        lines.append(f"{full_name}\n{handle} | ID: {uid}\nآخرین فعالیت: {seen}\nوضعیت: {status}\nکیف پول: {wallet or 'ثبت نشده'}\n/user_info {uid}")
     await m.answer("\n".join(lines)[:4000])
 
 @dp.message(Command("report"))
@@ -1388,21 +1405,8 @@ async def main():
     if not ADMIN_ID:
         raise RuntimeError("ADMIN_ID را در فایل .env تنظیم کنید.")
     init_db()
-    # Commands visible to ordinary users
-    await bot.set_my_commands([
-        BotCommand(command="start", description="Start the bot"),
-        BotCommand(command="balance", description="View your balance"),
-        BotCommand(command="mine", description="Hourly EMPC mining"),
-        BotCommand(command="activate", description="Submit activation transaction"),
-        BotCommand(command="setwallet", description="Set your wallet address"),
-        BotCommand(command="withdraw", description="Request a withdrawal"),
-        BotCommand(command="tasks", description="View available tasks"),
-        BotCommand(command="claim", description="Submit task evidence for review"),
-        BotCommand(command="trade", description="Request a trade"),
-        BotCommand(command="lottery_join", description="Join the lottery"),
-        BotCommand(command="checkin", description="Daily check-in"),
-        BotCommand(command="referral", description="Get your referral link"),
-    ])
+    # Keep ordinary users command menu minimal; Mini App is the primary interface.
+    await bot.set_my_commands([BotCommand(command="start", description="Start EMPC")])
 
     # Additional commands visible only in the administrator's command menu
     await bot.set_my_commands([
@@ -1431,12 +1435,16 @@ async def main():
         BotCommand(command="task_approve", description="Approve task evidence"),
         BotCommand(command="task_reject", description="Reject task evidence"),
     ], scope=BotCommandScopeChat(chat_id=ADMIN_ID))
-    # Keep Telegram's three-line menu for bot commands; expose the Mini App as a separate inline button.
-    await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+    # Keep the Mini App as the default menu button for ordinary users,
+    # but show the command menu to the administrator in their private chat.
     if WEBAPP_URL:
-        print(f"[webapp] Mini App inline button enabled: {WEBAPP_URL}")
+        await bot.set_chat_menu_button(menu_button=MenuButtonWebApp(text="Open EMPC", web_app=WebAppInfo(url=WEBAPP_URL)))
+        await bot.set_chat_menu_button(chat_id=ADMIN_ID, menu_button=MenuButtonCommands())
+        print(f"[webapp] Mini App menu button enabled for users: {WEBAPP_URL}")
+        print("[webapp] Administrator command menu enabled.")
     else:
-        print("[webapp] WEBAPP_URL is not set; Mini App button is disabled.")
+        await bot.set_chat_menu_button(menu_button=MenuButtonCommands())
+        print("[webapp] WEBAPP_URL is not set; command menu is enabled.")
 
     await asyncio.gather(
         dp.start_polling(bot),
