@@ -920,14 +920,24 @@ async def activation_ok(m: Message):
         return
     uid=int(p[1]); start=now(); end=start+timedelta(days=WAIT_DAYS)
     with db() as c:
-        row=c.execute("SELECT activation_tx,lang,referred_by,referral_rewarded,activation_at FROM users WHERE user_id=?",(uid,)).fetchone()
+        row=c.execute("SELECT activation_tx,lang,referred_by,referral_rewarded,activation_at,wallet FROM users WHERE user_id=?",(uid,)).fetchone()
         if not row or not row[0]:
             await m.answer("No activation transaction found for this user."); return
         if row[4]:
             await m.answer("This user is already activated."); return
+        if not row[5]:
+            await m.answer("User must connect a TON wallet before activation and referral reward."); return
         c.execute("UPDATE users SET activation_at=?,withdraw_after=NULL WHERE user_id=?",(start.isoformat(),uid))
-        # Referral rewards are credited upon wallet connection.
-        reward_referral = False
+        inviter = row[2]
+        reward_referral = bool(inviter and not row[3])
+        if reward_referral:
+            c.execute("UPDATE users SET balance=balance+100 WHERE user_id=?",(int(inviter),))
+            c.execute("INSERT INTO balance_history(user_id,change_amount,reason,reference,created_at) VALUES(?,?,?,?,?)",
+                      (int(inviter),100,"referral_reward",str(uid),start.isoformat()))
+            c.execute("UPDATE users SET referral_rewarded=1 WHERE user_id=?",(uid,))
+            pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
+            if pool_row:
+                c.execute("UPDATE settings SET value=? WHERE key='pool'",(str(max(0,int(pool_row[0])-100)),))
     await m.answer(f"Activation for user {uid} approved. 30 successful check-ins and a 17,000 EMPC minimum balance are required for withdrawal.")
     lang = row[1] if row[1] in ("en","fa","ru") else "en"
     notices = {
