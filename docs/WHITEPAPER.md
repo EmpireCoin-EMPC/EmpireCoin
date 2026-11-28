@@ -16,7 +16,7 @@ EmpireCoin is a community-driven digital token. The planned Telegram rewards bot
 
 ## Planned bot functions
 - Hourly reward claims (subject to limits and rules)
-- Daily check-in rewards
+- Fixed daily check-in reward: 100 EMPC per successful check-in (3,000 EMPC across 30 successful check-ins)
 - Task submission with administrator review
 - Referral tracking
 - Internal balance and transaction history
