@@ -15,7 +15,7 @@ A rebuild of the previous experimental GRM bot around EmpireCoin (EMPC), the fix
 ## Rebuild plan
 The previous bot is an experimental codebase. Rebranding and feature changes are being staged; the existing runtime must not be treated as EMPC-ready until the code, database, payout flow, and server deployment have been reviewed and tested.
 
-Planned features: hourly rewards, daily check-ins, task submissions/reviews, referrals, balance history, wallet registration, withdrawal requests, admin controls, and a Telegram Mini App.
+Planned features: hourly rewards, fixed daily check-ins (100 EMPC per successful check-in; 3,000 EMPC over 30 successful check-ins), task submissions/reviews, referrals, balance history, wallet registration, withdrawal requests, admin controls, and a Telegram Mini App.
 
 ## Safety and status
 - Internal balances are not on-chain balances and are not proof of token payment.
