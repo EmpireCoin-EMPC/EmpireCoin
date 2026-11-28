@@ -152,7 +152,7 @@ async def daily_checkin(user_id: int, lang: str) -> str:
         if int(row[1] or 0) >= DAILY_CHECKIN_DAYS:
             return {"en":"You have completed all 30 check-ins. The withdrawal check-in requirement is satisfied.", "fa":"هر ۳۰ نوبت دیلی‌چک‌این را تکمیل کرده‌اید و شرط چک‌این برداشت انجام شده است.", "ru":"Все 30 отметок завершены. Условие для вывода выполнено."}[lang]
         day = int(row[1] or 0) + 1
-        reward = day * 50
+        reward = 100
         pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
         pool = int(pool_row[0]) if pool_row else 0
         reward = min(reward, pool)
