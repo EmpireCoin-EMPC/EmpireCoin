@@ -157,7 +157,7 @@ def create_app(*, bot_token, db_path, hourly_reward, fee_percent, activation_fee
             day += 1
             pool_row = c.execute("SELECT value FROM settings WHERE key='pool'").fetchone()
             pool = int(pool_row[0]) if pool_row else 0
-            reward = min(day * 50, pool)
+            reward = min(100, pool)
             if reward <= 0:
                 raise web.HTTPConflict(text="Reward pool is empty")
             c.execute("UPDATE users SET checkin_day=?,last_checkin_date=?,balance=balance+? WHERE user_id=?",
